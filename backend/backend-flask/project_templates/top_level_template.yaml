@@ -1,0 +1,36 @@
+name: top-level
+kind: menu
+presentation: |
+  Please add here the description ...
+fallback: |
+  Please add here the fallback (optional) ...
+
+items:
+    
+    # IMPORTANT: This just is an example, there is no need to
+    # include all of these types. 
+    # It is common to have items of the same type.
+
+    # These are the current supported item types:
+
+    # answer item
+    - title: What is this template? # e.g. talk about the template ..
+      kind: answer
+      answer: This is a menu module template
+      # It will answer the question
+
+    # tool (module) item
+    - title: My new module
+      kind: module
+      reference: new_module
+      # new_module.yaml is the name of the module file
+
+    # sequence item
+    - title: Does module_1 and module_2
+      kind: sequence
+      references:
+        - module_1
+        - module_2
+      # It will visit module_1.yaml and module_2.yaml
+
+    # More items can be added if needed ...

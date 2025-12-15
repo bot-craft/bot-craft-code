@@ -1,0 +1,21 @@
+services:
+  
+  backend-flask:
+    build:
+      context: .
+      args:
+        - USER_UID=${UID:-1000}
+        - USER_GID=${UID:-1000}
+    image: backend-flask_img
+    ports:
+      - "7000:7000"
+    volumes:
+      - ./backend-flask:/home/ubuntu/app/backend-flask
+
+    restart: unless-stopped
+    
+    stdin_open: true
+    tty: true
+        
+    container_name: twp-backend-flask
+    hostname: twp-backend-flask

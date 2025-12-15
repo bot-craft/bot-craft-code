@@ -1,0 +1,54 @@
+services:
+  taskyto-db:
+    image: mongo:latest
+    
+    stdin_open: true
+    tty: true
+
+    ports:
+      - 8686:27017
+
+    # expose:
+    #   - 27017
+    
+    environment:
+      MONGO_INITDB_DATABASE: taskyto-db
+      
+    hostname: twp-taskyto-db
+    container_name: twp-taskyto-db
+
+    restart: unless-stopped
+
+    volumes:
+      - ./data/db:/data/db
+      - ./data/configdb:/data/configdb
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+      
+    command: mongod --setParameter=authenticationMechanisms=SCRAM-SHA-1,SCRAM-SHA-256
+
+## old:
+# docker exec -it taskyto-db mongosh
+
+## Locally:
+
+# mongosh "mongodb://localhost:8686/taskyto-db" --eval "db.chatbots.find()"
+# clear && mongosh "mongodb://localhost:8686/taskyto-db" --eval "db.chatbots.findOne()"
+
+## From Docker (if U don't have mongosh installed):
+
+# docker exec -it taskyto-db mongosh "mongodb://localhost:27017/taskyto-db" --eval "db.chatbots.find()"
+# clear && docker exec -it taskyto-db mongosh "mongodb://localhost:27017/taskyto-db" --eval "db.chatbots.findOne()"
+
+
+# Para borrar las conversaciones de los chatbots de la dbdb:
+
+# use('taskyto-db');
+# db.getCollection('chatbots').updateMany(
+#   { "chatbots.test-bot.conversations": { $exists: true } },
+#   { $unset: { "chatbots.test-bot.conversations": "" } }
+# );
+
+# clear && mongosh "mongodb://localhost:8686/taskyto-db" --eval 'db.chatbots.updateMany(
+#   { "chatbots.test-bot.conversations": { $exists: true } },
+#   { $unset: { "chatbots.test-bot.conversations": "" } }
+# )'

@@ -1,0 +1,21 @@
+services:
+
+  taskyto-assistant:
+    build:
+      context: .
+      args:
+        - USER_UID=${UID:-1000}
+        - USER_GID=${UID:-1000}
+    image: assistant-flask_img
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./assistant-flask:/home/ubuntu/app/assistant-flask
+
+    restart: unless-stopped
+    
+    stdin_open: true
+    tty: true
+
+    container_name: twp-taskyto-assistant
+    hostname: twp-taskyto-assistant

@@ -1,0 +1,3 @@
+python -m venv venv_backend_flask
+. venv_backend_flask/bin/activate
+pip install -r requirements.txt

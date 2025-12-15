@@ -1,0 +1,25 @@
+services:
+  frontend-react:
+    build:
+      context: .
+    image: node-react_img
+    ports:
+      - "9000:9000"
+    volumes:
+      # - ./react-pract:/app
+      - ./frontend-react:/app/frontend-react
+      - "react_node_modules:/app/frontend-react/node_modules"
+
+    
+    restart: unless-stopped
+    
+    stdin_open: true
+    tty: true
+        
+    container_name: twp-frontend-react
+    hostname: twp-frontend-react
+
+volumes:
+  react_node_modules:
+    name: react_node_modules
+    external: true

@@ -1,0 +1,36 @@
+{
+    "chatbots": { 
+        "<chatbotSlug1>": { 
+            "conversations": { 
+                "<conversationName1>":  {
+                    "id": "<str>", 
+                    "interaction": [ 
+                            {"text": "<str>", "isBot": "<bool>", "timestamp": "<timestamp>"}, 
+                            {"text": "<str>", "isBot": "<bool>", "timestamp": "<timestamp>"}
+                        ] , 
+                    "is_dead": false            
+                },
+                "<conversationName2>":  {
+                    "id": "<str>", 
+                    "interaction": [ 
+                            {"text": "<str>", "isBot": "<bool>", "timestamp": "<timestamp>"}, 
+                            {"text": "<str>", "isBot": "<bool>", "timestamp": "<timestamp>"} 
+                        ] , 
+                    "is_dead": false            
+                }
+            }
+        },
+        "<chatbotSlug2>": { 
+            "conversations": { 
+                "<conversationName1>":  {
+                    "id": "<str>", 
+                    "interaction": [ 
+                            {"text": "<str>", "isBot": "<bool>", "timestamp": "<timestamp>"}, 
+                            {"text": "<str>", "isBot": "<bool>", "timestamp": "<timestamp>"}
+                        ] , 
+                    "is_dead": false            
+                }
+            }
+        }
+    }
+}

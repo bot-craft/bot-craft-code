@@ -1,0 +1,51 @@
+services:
+  backend:
+    extends:
+      file: backend/docker-compose.yml
+      service: backend-flask
+
+    depends_on:
+      - db
+
+  chatbot-llm:
+    extends:
+      file: chatbot-llm/docker-compose.yml
+      service: chatbot
+    
+    environment:
+      - DB_PORT=8686
+
+    # volumes:
+    #   # - ./backend/src/taskyto/projects/user_projects:/home/ubuntu/chatbot-llm/chatbots
+    #   - ./backend/backend-flask/user_projects:/home/ubuntu/chatbot-llm/chatbots
+
+  #   depends_on:
+  #     - backend
+
+  db:
+    extends:
+      file: db/docker-compose.yml
+      service: taskyto-db
+
+
+  frontend:
+    extends:
+      file: frontend/docker-compose.yml
+      service: frontend-react
+    env_file: ".env"
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_IP_ADDRESS=${REACT_APP_IP_ADDRESS}
+
+  taskyto-assistant:
+    extends:
+      file: taskyto-assistant/docker-compose.yml
+      service: taskyto-assistant    
+    depends_on:
+      - frontend
+
+volumes:
+  react_node_modules:
+    name: react_node_modules
+    external: true
