@@ -38,6 +38,8 @@ The **Taskyto Assistant** is an AI-powered tool integrated into the editor that 
   </table>
 </div>
 
+For more ingormation, consider checking [bot-craft](https://bot-craft.github.io) page
+
 #### 3. DEMO
 
 **Platform Walkthrough**
