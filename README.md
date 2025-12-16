@@ -1,5 +1,5 @@
 # <a name="readme">bot-craft-code</a>
-A web platform for Taskyto chatbots
+A web platform for [Taskyto](https://github.com/satori-chatbots/taskyto/tree/main) chatbots
 
 Bot-Craft is a web platform designed to facilitate the development and deployment of task-oriented chatbots using the Taskyto domain-specific language. The platform addresses the complexity of manual chatbot construction by providing an online code editor and an intelligent assistant.
 
