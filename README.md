@@ -5,7 +5,8 @@ Bot-Craft is a web platform designed to facilitate the development and deploymen
 
 The **Taskyto Assistant** is an AI-powered tool integrated into the editor that allows users to generate code fragments, resolve syntax questions, and create complete YAML modules from natural language descriptions, significantly accelerating the development cycle.
 
-Click [HERE](http://miso.ii.uam.es:9000) to use the deployed app. 
+Click [HERE](http://miso.ii.uam.es:9000) to use the deployed app. <br>
+Click [HERE](https://bot-craft.github.io) for more information about the platform.
 
 #### Table of Contents
 1. [REQUIREMENTS](#1-requirements)
