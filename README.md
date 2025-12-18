@@ -50,7 +50,7 @@ For more information, consider checking [bot-craft](https://bot-craft.github.io)
 A complete tour of the Bot-Craft platform, showcasing the chatbot list, code editor, interactive chat and the general workflow for chatbot creation.
 
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/3b8c7f85-4e4d-42a4-901f-6b997027fd50" controls autoplay loop muted width="60%"></video>
+  <video src="https://github.com/user-attachments/assets/3b8c7f85-4e4d-42a4-901f-6b997027fd50A" controls autoplay loop muted width="60%"></video>
 </div>
 
 **Automated Code Integration**
