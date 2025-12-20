@@ -49,9 +49,9 @@ For more information, consider checking [bot-craft](https://bot-craft.github.io)
 
 A complete tour of the Bot-Craft platform, showcasing the chatbot list, code editor, interactive chat and the general workflow for chatbot creation.
 
-<div align="center">
-  <video src="https://github.com/user-attachments/assets/3b8c7f85-4e4d-42a4-901f-6b997027fd50A" controls autoplay loop muted width="60%"></video>
-</div>
+
+https://github.com/user-attachments/assets/2b1657af-a033-431d-8ec3-91e78a17b4ad
+
 
 **Automated Code Integration**
 
