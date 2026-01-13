@@ -416,44 +416,47 @@ const CodeEditor = ({ projectSlug }) => {
             </Box>
             
             {activeFile && (
-              <Editor
-                height="100%"
-                defaultLanguage={getLanguageFromPath(activeFile)}
-                path={activeFile}
-                value={openFiles.find(f => f.path === activeFile)?.content || ''}
-                theme={currentTheme.monacoTheme} // Usar tema dinámico
-                options={{
-                  readOnly: false,
-                  minimap: { enabled: true },
-                }}
-                onChange={(value) => handleContentChange(value, activeFile)}
-                onMount={handleEditorDidMount}
-                beforeMount={(monaco) => {
-                  if (getLanguageFromPath(activeFile) === 'yaml') {
-                    // Cleanup previous disposables
-                    editorDisposables.current.forEach(d => {
-                      try {
-                        d.dispose();
-                      } catch (e) {
-                        console.warn('Error disposing editor resource:', e);
-                      }
-                    });
-                    editorDisposables.current = [];
+              /* AÑADIDO: Envolvemos el editor en un Box con flexGrow: 1 y overflow: hidden */
+              <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
+                <Editor
+                  height="100%"
+                  defaultLanguage={getLanguageFromPath(activeFile)}
+                  path={activeFile}
+                  value={openFiles.find(f => f.path === activeFile)?.content || ''}
+                  theme={currentTheme.monacoTheme} // Usar tema dinámico
+                  options={{
+                    readOnly: false,
+                    minimap: { enabled: true },
+                  }}
+                  onChange={(value) => handleContentChange(value, activeFile)}
+                  onMount={handleEditorDidMount}
+                  beforeMount={(monaco) => {
+                    if (getLanguageFromPath(activeFile) === 'yaml') {
+                      // Cleanup previous disposables
+                      editorDisposables.current.forEach(d => {
+                        try {
+                          d.dispose();
+                        } catch (e) {
+                          console.warn('Error disposing editor resource:', e);
+                        }
+                      });
+                      editorDisposables.current = [];
 
-                    const disposable = configureYamlEditor(monaco, projectSlug, filesRef, {
-                        setModuleDialogOpen,
-                        setModuleName,
-                        setModuleType,
-                        setSelectedNode, // Añadir esta función
-                        handleCreateModule
-                    });
+                      const disposable = configureYamlEditor(monaco, projectSlug, filesRef, {
+                          setModuleDialogOpen,
+                          setModuleName,
+                          setModuleType,
+                          setSelectedNode, // Añadir esta función
+                          handleCreateModule
+                      });
 
-                    // Guardar la referencia al editor YAML
-                    yamlEditorRef.current = disposable;
-                    editorDisposables.current.push(disposable);
-                  }
-                }}
-              />
+                      // Guardar la referencia al editor YAML
+                      yamlEditorRef.current = disposable;
+                      editorDisposables.current.push(disposable);
+                    }
+                  }}
+                />
+              </Box>
             )}
           </Box>
         </Panel>
