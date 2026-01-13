@@ -338,7 +338,12 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
 
         const existingMarkers = monaco.editor.getModelMarkers({ owner: 'yaml-validator' });
         const referenceMarkers = existingMarkers.filter(m => m.code === 'missing-module');
-        monaco.editor.setModelMarkers(model, 'yaml-validator', [...markers, ...referenceMarkers]);
+
+        /* Crea una nueva una nueva variable a partir de referenceMarkers
+        cuyo resource.path coincida con model.uri.path */
+        const filteredReferenceMarkers = referenceMarkers.filter(m => m.resource.path === model.uri.path);
+        
+        monaco.editor.setModelMarkers(model, 'yaml-validator', [...markers, ...filteredReferenceMarkers]);
     };
 
     // Modificamos la función validateTextVariables para capturar y preservar el contenido completo
