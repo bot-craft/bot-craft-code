@@ -1,4 +1,3 @@
-import os
 import base64
 import hashlib
 from cryptography.fernet import Fernet
@@ -6,21 +5,6 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
-# def load_or_create_key(key_path='encryption_key.key'):
-#     """Load or create an encryption key for API key encryption"""
-#     if not os.path.exists(key_path):
-#         encryption_key = Fernet.generate_key()
-#         with open(key_path, 'wb') as key_file:
-#             key_file.write(encryption_key)
-#     else:
-#         with open(key_path, 'rb') as key_file:
-#             encryption_key = key_file.read()
-    
-#     return encryption_key
-
-# # Initialize cipher suite
-# encryption_key = load_or_create_key()
-# cipher_suite = Fernet(encryption_key)
 
 def encrypt_api_key(api_key, key):
     """
