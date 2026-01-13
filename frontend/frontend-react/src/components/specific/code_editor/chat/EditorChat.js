@@ -28,12 +28,15 @@ const EditorChat = ({
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
+  const lastScrollPosition = useRef(null);
 
   // Load conversation history on mount
   useEffect(() => {
     const loadChatHistory = async () => {
       const history = await EditorChatService.getConversationHistory();
       setMessages(history);
+      // If history loaded and chat is open/visible, scroll to bottom initially
+      // But we rely on isOpen effect for visibility handling
     };
     
     loadChatHistory();
@@ -48,8 +51,39 @@ const EditorChat = ({
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom();
+    // Only auto-scroll if we are already near bottom or it's a new message exchange
+    // For simplicity, we stick to auto-scroll if it's a new message
+    // but without animation if needed? The user said "sin animaciones" for opening.
+    // For new messages, smooth scroll is usually nice.
+    if (isOpen) {
+        const container = chatContainerRef.current;
+        if (container) {
+            // Check if user was near bottom before the update (optional refinement)
+            // For now, simple behavior: scroll to bottom on new message
+            scrollToBottom(); 
+        }
+    }
   }, [messages, streamedResponse]);
+
+  // Handle scroll position when opening/closing
+  useEffect(() => {
+    if (isOpen) {
+      if (chatContainerRef.current) {
+        if (lastScrollPosition.current !== null) {
+          // Restore last position without animation
+          chatContainerRef.current.scrollTop = lastScrollPosition.current;
+        } else {
+          // No last position (first open), go to bottom without animation
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }
+    }
+  }, [isOpen]);
+
+  const handleScroll = (e) => {
+    // Save scroll position
+    lastScrollPosition.current = e.target.scrollTop;
+  };
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
@@ -164,18 +198,13 @@ const EditorChat = ({
   return (
     <Box
       sx={{
-        position: 'absolute',
-        right: 0,
-        top: 0,
-        width: '450px',
+        width: '100%',
         height: '100%',
         backgroundColor: theme.chatBg, // Usar tema
         display: 'flex',
         flexDirection: 'column',
         borderLeft: 1,
         borderColor: theme.chatBorder, // Usar tema
-        zIndex: 1000,
-        transition: 'width 0.2s ease',
       }}
     >
       {/* Header */}
@@ -218,6 +247,7 @@ const EditorChat = ({
       {/* Chat Messages */}
       <Box
         ref={chatContainerRef}
+        onScroll={handleScroll}
         sx={{
           flexGrow: 1,
           overflow: 'auto',
@@ -316,6 +346,8 @@ const EditorChat = ({
         onSendMessage={handleSendMessage} 
         disabled={isLoading} 
         theme={theme} // Pasar el tema al input
+        history={messages.filter(m => m.isUser).map(m => m.text)}
+        shouldFocus={isOpen}
       />
 
       {/* Confirm clear conversation dialog */}

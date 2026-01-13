@@ -1,6 +1,7 @@
 class EditorChatService {
   // URL base para las peticiones al backend de Taskyto
   static API_BASE_URL = process.env.REACT_APP_API_URL || `http://${process.env.REACT_APP_IP_ADDRESS}:4000`;
+  static MAIN_API_BASE_URL = process.env.REACT_APP_MAIN_API_URL || `http://${process.env.REACT_APP_IP_ADDRESS}:7000`;
   
   /**
    * Envía un mensaje al asistente de Taskyto
@@ -97,7 +98,7 @@ class EditorChatService {
    */
   static async getProjectFiles(projectSlug) {
     try {
-      const response = await fetch(`${this.API_BASE_URL.replace(/\/+$/, '')}/api/projects/${projectSlug}/files`);
+      const response = await fetch(`${this.MAIN_API_BASE_URL.replace(/\/+$/, '')}/api/projects/${projectSlug}/files`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch project files: ${response.status}`);
@@ -121,7 +122,7 @@ class EditorChatService {
   static async getFileContent(projectSlug, filePath) {
     try {
       const response = await fetch(
-        `${this.API_BASE_URL.replace(/\/+$/, '')}/api/projects/${projectSlug}/files/${filePath}/get`
+        `${this.MAIN_API_BASE_URL.replace(/\/+$/, '')}/api/projects/${projectSlug}/files/${filePath}/get`
       );
       
       if (!response.ok) {

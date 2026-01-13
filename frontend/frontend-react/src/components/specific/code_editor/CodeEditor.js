@@ -84,6 +84,36 @@ const CodeEditor = ({ projectSlug }) => {
 
   // Crear un ref para mantener los archivos actualizados
   const filesRef = React.useRef(files);
+
+  // Solución eficiente para el error "ResizeObserver loop completed with undelivered notifications"
+  // Este error es benigno y ocurre comúnmente al combinar react-resizable-panels con Monaco Editor
+  useEffect(() => {
+    const handleError = (e) => {
+      // Filtramos específicamente el error de ResizeObserver
+      if (
+        e.message === 'ResizeObserver loop completed with undelivered notifications.' ||
+        e.message === 'ResizeObserver loop limit exceeded'
+      ) {
+        // Detenemos la propagación para que no llegue a la consola o overlays de error
+        const resizeObserverErrDiv = document.getElementById(
+          'webpack-dev-server-client-overlay-div'
+        );
+        const resizeObserverErr = document.getElementById(
+          'webpack-dev-server-client-overlay'
+        );
+        if (resizeObserverErr) {
+          resizeObserverErr.setAttribute('style', 'display: none');
+        }
+        if (resizeObserverErrDiv) {
+          resizeObserverErrDiv.setAttribute('style', 'display: none');
+        }
+        e.stopImmediatePropagation();
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
   
   // Actualizar el ref cuando files cambie y forzar revalidación
   useEffect(() => {
@@ -393,93 +423,115 @@ const CodeEditor = ({ projectSlug }) => {
         />
         
         <Panel defaultSize={80}>
-          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: currentTheme.border }}>
-              <EditorTabs
-                openFiles={openFiles}
-                activeFile={activeFile}
-                onFileSelect={setActiveFile}
-                onFileClose={handleFileClose}
-                theme={currentTheme} // Pasar tema (necesitará actualización en siguiente paso)
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <ThemeToggleButton 
-                  isDarkMode={isDarkMode} 
-                  onToggle={() => setIsDarkMode(!isDarkMode)} 
-                />
-                <ChatToggleButton 
-                  onClick={toggleChat} 
-                  isOpen={chatOpen}
-                  unreadCount={unreadMessages}
-                />
-              </Box>
-            </Box>
-            
-            {activeFile && (
-              /* AÑADIDO: Envolvemos el editor en un Box con flexGrow: 1 y overflow: hidden */
-              <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
-                <Editor
-                  height="100%"
-                  defaultLanguage={getLanguageFromPath(activeFile)}
-                  path={activeFile}
-                  value={openFiles.find(f => f.path === activeFile)?.content || ''}
-                  theme={currentTheme.monacoTheme} // Usar tema dinámico
-                  options={{
-                    readOnly: false,
-                    minimap: { enabled: true },
-                  }}
-                  onChange={(value) => handleContentChange(value, activeFile)}
-                  onMount={handleEditorDidMount}
-                  beforeMount={(monaco) => {
-                    if (getLanguageFromPath(activeFile) === 'yaml') {
-                      // Cleanup previous disposables
-                      editorDisposables.current.forEach(d => {
-                        try {
-                          d.dispose();
-                        } catch (e) {
-                          console.warn('Error disposing editor resource:', e);
+          <PanelGroup direction="horizontal">
+            <Panel minSize={30}>
+              <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: currentTheme.border, overflow: 'hidden' }}>
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <EditorTabs
+                      openFiles={openFiles}
+                      activeFile={activeFile}
+                      onFileSelect={setActiveFile}
+                      onFileClose={handleFileClose}
+                      theme={currentTheme} // Pasar tema (necesitará actualización en siguiente paso)
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, px: 1 }}>
+                    <ThemeToggleButton 
+                      isDarkMode={isDarkMode} 
+                      onToggle={() => setIsDarkMode(!isDarkMode)} 
+                    />
+                    <ChatToggleButton 
+                      onClick={toggleChat} 
+                      isOpen={chatOpen}
+                      unreadCount={unreadMessages}
+                    />
+                  </Box>
+                </Box>
+                
+                {activeFile && (
+                  /* AÑADIDO: Envolvemos el editor en un Box con flexGrow: 1 y overflow: hidden */
+                  <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
+                    <Editor
+                      height="100%"
+                      defaultLanguage={getLanguageFromPath(activeFile)}
+                      path={activeFile}
+                      value={openFiles.find(f => f.path === activeFile)?.content || ''}
+                      theme={currentTheme.monacoTheme} // Usar tema dinámico
+                      options={{
+                        readOnly: false,
+                        minimap: { enabled: true },
+                      }}
+                      onChange={(value) => handleContentChange(value, activeFile)}
+                      onMount={handleEditorDidMount}
+                      beforeMount={(monaco) => {
+                        if (getLanguageFromPath(activeFile) === 'yaml') {
+                          // Cleanup previous disposables
+                          editorDisposables.current.forEach(d => {
+                            try {
+                              d.dispose();
+                            } catch (e) {
+                              console.warn('Error disposing editor resource:', e);
+                            }
+                          });
+                          editorDisposables.current = [];
+
+                          const disposable = configureYamlEditor(monaco, projectSlug, filesRef, {
+                              setModuleDialogOpen,
+                              setModuleName,
+                              setModuleType,
+                              setSelectedNode, // Añadir esta función
+                              handleCreateModule
+                          });
+
+                          // Guardar la referencia al editor YAML
+                          yamlEditorRef.current = disposable;
+                          editorDisposables.current.push(disposable);
                         }
-                      });
-                      editorDisposables.current = [];
-
-                      const disposable = configureYamlEditor(monaco, projectSlug, filesRef, {
-                          setModuleDialogOpen,
-                          setModuleName,
-                          setModuleType,
-                          setSelectedNode, // Añadir esta función
-                          handleCreateModule
-                      });
-
-                      // Guardar la referencia al editor YAML
-                      yamlEditorRef.current = disposable;
-                      editorDisposables.current.push(disposable);
-                    }
-                  }}
-                />
+                      }}
+                    />
+                  </Box>
+                )}
               </Box>
-            )}
-          </Box>
+            </Panel>
+
+            <PanelResizeHandle 
+              style={{
+                width: '4px',
+                background: currentTheme.border, // Usar tema
+                cursor: 'col-resize',
+                display: chatOpen ? 'block' : 'none'
+              }}
+            />
+            <Panel 
+              defaultSize={35} 
+              minSize={20} 
+              maxSize={50}
+              style={{ display: chatOpen ? 'block' : 'none' }}
+            >
+              <EditorChat 
+                isOpen={chatOpen} 
+                onClose={() => setChatOpen(false)} 
+                projectSlug={projectSlug}
+                editorContent={openFiles.find(f => f.path === activeFile)?.content || ''}
+                files={files}
+                onFileSystemChange={fetchFiles}
+                onUpdateOpenFile={handleUpdateOpenFile}
+                openFiles={openFiles}
+                theme={currentTheme} // Pasar tema
+                isDarkMode={isDarkMode}
+                onToggleTheme={() => setIsDarkMode(!isDarkMode)}
+              />
+            </Panel>
+          </PanelGroup>
         </Panel>
       </PanelGroup>
 
       {/* Status Bar */}
       <StatusBar theme={currentTheme} /> 
       
-      {/* AI Chat Panel */}
-      <EditorChat 
-        isOpen={chatOpen} 
-        onClose={() => setChatOpen(false)} 
-        projectSlug={projectSlug}
-        editorContent={openFiles.find(f => f.path === activeFile)?.content || ''}
-        files={files}
-        onFileSystemChange={fetchFiles}
-        onUpdateOpenFile={handleUpdateOpenFile}
-        openFiles={openFiles}
-        theme={currentTheme} // Pasar tema
-        isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-      />
     </Box>
+      
   );
 };
 

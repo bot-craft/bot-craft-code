@@ -494,7 +494,23 @@ const FileExplorer = ({
       overflow: 'auto',
       bgcolor: theme.explorerBg, // Usar tema
       borderRight: 1,
-      borderColor: theme.border // Usar tema
+      borderColor: theme.border, // Usar tema
+      // Scrollbar styling (match editor/tabs)
+      '&::-webkit-scrollbar': {
+        width: '10px',
+        height: '10px',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        backgroundColor: theme.mode === 'dark' ? 'rgba(121, 121, 121, 0.4)' : 'rgba(100, 100, 100, 0.4)',
+        borderRadius: '6px',
+        border: '2px solid transparent', // Padding effect around thumb
+        backgroundClip: 'content-box',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent'
+      },
+      scrollbarWidth: 'thin',
+      scrollbarColor: `${theme.mode === 'dark' ? 'rgba(121, 121, 121, 0.4)' : 'rgba(100, 100, 100, 0.4)'} transparent`,
     }}>
       <Box sx={{ 
         p: 1,

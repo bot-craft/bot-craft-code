@@ -1,13 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, IconButton, Tooltip } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 
-const EditorChatInput = ({ onSendMessage, disabled, theme }) => {
+const EditorChatInput = ({ onSendMessage, disabled, theme, history = [], shouldFocus }) => {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState(null);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const inputRef = useRef(null);
+
+  // Auto-focus when shouldFocus becomes true (chat opens)
+  useEffect(() => {
+    if (shouldFocus && inputRef.current) {
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 50);
+    }
+  }, [shouldFocus]);
 
   // Initialize speech recognition on component mount
   useEffect(() => {
@@ -64,10 +75,16 @@ const EditorChatInput = ({ onSendMessage, disabled, theme }) => {
     if (message.trim() && !disabled) {
       onSendMessage(message);
       setMessage('');
+      setHistoryIndex(-1);
       if (isRecording && recognition) {
         recognition.stop();
         setIsRecording(false);
       }
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 0);
     }
   };
 
@@ -75,6 +92,34 @@ const EditorChatInput = ({ onSendMessage, disabled, theme }) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      if (history.length > 0) {
+        e.preventDefault();
+        let nextIndex;
+        if (historyIndex === -1) {
+            nextIndex = history.length - 1;
+        } else {
+            nextIndex = Math.max(0, historyIndex - 1);
+        }
+        setHistoryIndex(nextIndex);
+        setMessage(history[nextIndex]);
+      }
+    } else if (e.key === 'ArrowDown') {
+      if (historyIndex !== -1) {
+        e.preventDefault();
+        const nextIndex = historyIndex + 1;
+        if (nextIndex >= history.length) {
+            setHistoryIndex(-1);
+            setMessage('');
+        } else {
+            setHistoryIndex(nextIndex);
+            setMessage(history[nextIndex]);
+        }
+      }
+      // Removed handleSubmit(e) from here
     }
   };
 
@@ -93,13 +138,13 @@ const EditorChatInput = ({ onSendMessage, disabled, theme }) => {
       }}
     >
       <TextField
+        inputRef={inputRef}
         multiline
         maxRows={4}
         placeholder="Ask Taskyto Assistant..."
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
         fullWidth
         variant="outlined"
         size="small"
