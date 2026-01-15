@@ -31,10 +31,9 @@ def chat_simple():
     data = request.json
 
     promt = data.get("prompt")
-    context = data.get("context", None)
     api_key = data.get("api_key", None)
 
-    response = simple_chat(prompt=promt, context=context, api_key=api_key)
+    response = simple_chat(prompt=promt, api_key=api_key)
 
     print("-------------------")  # Debugging output
     # print(response)  # Debugging output

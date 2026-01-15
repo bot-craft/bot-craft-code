@@ -106,7 +106,7 @@ const EditorChat = ({
     try {
       // Get all files in the project to provide context
       // This would need to be implemented in EditorChatService
-      const projectFiles = await EditorChatService.getProjectFiles(projectSlug);
+      // const projectFiles = await EditorChatService.getProjectFiles(projectSlug);
 
       // FABADA: Pillar la API key
       const userData = await MongoDBService.getCurrentUser();
@@ -118,16 +118,7 @@ const EditorChat = ({
       // Send message to backend with project context
       const response = await EditorChatService.sendMessage(
         text,
-        api_key,
-        null,
-        (chunk) => {
-          setStreamedResponse(prev => prev + chunk);
-        },
-        {
-          projectFiles,
-          currentFile: editorContent?.path,
-          currentFileContent: editorContent?.content
-        }
+        api_key
       );
       
       // If we got a streamed response, add it to messages

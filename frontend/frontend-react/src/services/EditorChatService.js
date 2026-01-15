@@ -11,76 +11,34 @@ class EditorChatService {
    * @param {Function} onStreamChunk - Callback para manejar streaming (opcional)
    * @returns {Promise<Object>} - Resultado de la operación
    */
-  static async sendMessage(message, api_key, conversationId = null, onStreamChunk = null, context = {}) {
+  static async sendMessage(message, api_key) {
     try {
       // Preparar datos para la petición
       const requestData = {
         prompt: message,
-        context: {
-          projectFiles: context.projectFiles || [],
-          currentFile: context.currentFile || null,
-          currentFileContent: context.currentFileContent || null,
-          conversationId: conversationId
-        },
         api_key: api_key || null,
       };
       
-      // Si no necesitamos streaming
-      if (!onStreamChunk) {
-        const response = await fetch(`${this.API_BASE_URL}/api/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Unknown error occurred');
-        }
-        
-        return {
-          success: true,
-          answer: data.response,
-          processing_time: data.processing_time_seconds
-        };
-      } 
-      // Si necesitamos streaming
-      else {
-        // Implementación futura: conexión por WebSockets o SSE
-        // Por ahora realizamos una solicitud no-streaming y simulamos streaming
-        const response = await fetch(`${this.API_BASE_URL}/api/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestData),
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.error || 'Unknown error occurred');
-        }
-        
-        // Simulación de streaming (dividir la respuesta en pedazos)
-        if (data.response && onStreamChunk) {
-          const chunks = this._simulateStreaming(data.response);
-          for (const chunk of chunks) {
-            onStreamChunk(chunk);
-            // Esperar un poco entre chunks para simular latencia
-            await new Promise(r => setTimeout(r, 10));
-          }
-        }
-        
-        return {
-          success: true,
-          answer: data.response,
-          processing_time: data.processing_time_seconds,
-        };
+      const response = await fetch(`${this.API_BASE_URL}/api/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Unknown error occurred');
       }
+      
+      return {
+        success: true,
+        answer: data.response,
+        processing_time: data.processing_time_seconds
+      };
+
     } catch (error) {
       console.error('Error sending message to assistant:', error);
       return {

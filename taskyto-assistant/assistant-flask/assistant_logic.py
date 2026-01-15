@@ -14,8 +14,8 @@ from assistant_prompts import IGNORED_KEYWORDS_DICT
 
 from time import sleep
 
-def simple_chat(prompt: str, context: Dict[str, Any] = None, api_key: str = None) -> Dict[str, Any]:
-    ic(prompt, context)  # Using icecream for debugging
+def simple_chat(prompt: str, api_key: str = None) -> Dict[str, Any]:
+    ic(prompt)  # Using icecream for debugging
 
     response: str = "Hello! This is a simple chat response to your prompt."
 
@@ -99,7 +99,7 @@ def create_simple_agent(memory: ConversationBufferMemory, api_key: str) -> Agent
     # Create the agent with prompt template directly
     agent = Agent(
         role="Taskyto Chatbots Expert Assistant",
-        goal="Understand, help understand and, if necessary (if the user has requested it), generate valid YAML content for Taskyto YAML file definitions",
+        goal="Understand, help understand and, if necessary (if the user has requested it), generate valid YAML content for Taskyto YAML file definitions. You may have attached some files from the user. Make your response coherent with the user request in relation with the attached content. This information helps you to understand the actual content and how it is being evolving in order to make it easier for you to satisfy the user's request",
         backstory=AGENT_BACKSTORY,
         llm=llm,
         verbose=True,
