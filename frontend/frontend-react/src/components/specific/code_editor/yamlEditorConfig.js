@@ -254,6 +254,10 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         let multilineIndent = 0;
         let inTextField = false;
         let textIndent = 0;
+        
+        // Estado para la sección data
+        let inDataSection = false;
+        let dataSectionIndent = 0;
 
         let moduleType = null;
         let minIndent = Infinity;
@@ -272,6 +276,20 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
 
         if (!moduleType || !validKeywordsByType[moduleType]) return markers;
         
+        // Helper to find closest keyword
+        const findClosestKeyword = (target) => {
+             let closest = '';
+             let minDst = Infinity;
+             validKeywordsByType[moduleType].forEach(k => {
+                 const dst = levenshteinDistance(target, k);
+                 if (dst < minDst) {
+                     minDst = dst;
+                     closest = k;
+                 }
+             });
+             return closest;
+        };
+
         // Extraer los campos de datos solo si es un módulo de tipo data_gathering o action
         let dataFields = new Set();
         if (moduleType === 'data_gathering' || moduleType === 'action') {
@@ -279,6 +297,32 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         }
 
         allLines.forEach((line, index) => {
+            // Comprobación de sección data
+            if (moduleType === 'data_gathering' || moduleType === 'action') {
+                const dataMatch = line.match(/^(\s*)data\s*:/);
+                if (dataMatch) {
+                    inDataSection = true;
+                    dataSectionIndent = dataMatch[1].length;
+                    // Continuamos para validar la keyword 'data' misma
+                } else if (inDataSection) {
+                    // Si la línea está vacía, la ignoramos y mantenemos el estado
+                    if (!line.trim()) return;
+
+                    const indentMatch = line.match(/^(\s*)/);
+                    const currentIndent = indentMatch ? indentMatch[1].length : 0;
+
+                    // Verificamos si es un elemento de lista (empieza por "- ")
+                    const isListItem = /^\s*-\s/.test(line);
+
+                    if (!isListItem && currentIndent <= dataSectionIndent) {
+                        inDataSection = false;
+                    } else {
+                        // Si estamos dentro de data, saltamos validación
+                        return;
+                    }
+                }
+            }
+
             // ... código existente para detectar palabras clave inválidas ...
             
             // Gestión de bloques multiline
@@ -297,7 +341,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                 }
                 
                 // Detectar inicio de bloque multiline
-                const blockStart = line.match(/^(\s*)(\w+)\s*:\s*\|/);
+                const blockStart = line.match(/^(\s*)([\w-]+)\s*:\s*\|/);
                 if (blockStart) {
                     const [ , indent, keyword ] = blockStart;
                     
@@ -309,6 +353,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     
                     // Subrayar si la clave no es válida
                     if (keyword !== 'kind' && !validKeywordsByType[moduleType].has(keyword)) {
+                        const suggestion = findClosestKeyword(keyword);
                         markers.push({
                             severity: monaco.MarkerSeverity.Warning,
                             message: `Invalid keyword '${keyword}' for ${moduleType} module`,
@@ -321,7 +366,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                             relatedInformation: [{
                                 message: JSON.stringify({
                                     keyword,
-                                    suggestion: '' // No hay sugerencia
+                                    suggestion: suggestion
                                 }),
                                 resource: model.uri,
                                 startLineNumber: index + 1,
@@ -351,7 +396,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             // Ignorar líneas dentro del bloque multiline que no son de texto
             if (inMultilineBlock) {
                 // Detectar si aparece una nueva clave con igual o menor indentación
-                const nextKey = line.match(/^(\s*)(\w+)\s*:/);
+                const nextKey = line.match(/^(\s*)([\w-]+)\s*:/);
                 if (nextKey && nextKey[1].length <= multilineIndent) {
                     inMultilineBlock = false;
                     inTextField = false; // También salimos del campo de texto
@@ -361,7 +406,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             }
 
             // Validación normal si no es multiline
-            const keywordMatch = line.match(/^(\s*)(\w+)\s*:/);
+            const keywordMatch = line.match(/^(\s*(?:-\s*)?)([\w-]+)\s*:/);
             if (keywordMatch) {
                 const [, indent, keyword] = keywordMatch;
                 if (keyword === 'kind' || validKeywordsByType[moduleType].has(keyword)) {
@@ -372,6 +417,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     return;
                 }
 
+                const suggestion = findClosestKeyword(keyword);
                 markers.push({
                     severity: monaco.MarkerSeverity.Warning,
                     message: `Invalid keyword '${keyword}' for ${moduleType} module`,
@@ -382,7 +428,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     code: 'invalid-keyword',
                     source: 'yaml-validator',
                     relatedInformation: [{
-                        message: JSON.stringify({ keyword, suggestion: '' }),
+                        message: JSON.stringify({ keyword, suggestion: suggestion }),
                         resource: model.uri,
                         startLineNumber: index + 1,
                         startColumn: indent.length + 1
@@ -645,7 +691,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                         edit: {
                             edits: [{
                                 resource: model.uri,
-                                edit: {
+                                textEdit: {
                                     range: {
                                         startLineNumber: marker.startLineNumber,
                                         startColumn: marker.startColumn,
