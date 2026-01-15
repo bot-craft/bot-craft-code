@@ -105,9 +105,7 @@ const EditorChat = ({
     setStreamedResponse('');
     
     try {
-      // Get files content if there are attachments
-      // Note: In a real implementation we would fetch the content of attachedFiles here
-      // content = await EditorChatService.getFileContent(projectSlug, attachedFiles[0])...
+
 
       // FABADA: Pillar la API key
       const userData = await MongoDBService.getCurrentUser();
@@ -119,7 +117,9 @@ const EditorChat = ({
       // Send message to backend with project context
       const response = await EditorChatService.sendMessage(
         text,
-        api_key
+        api_key,
+        projectSlug,
+        attachedFiles
       );
       
       // If we got a streamed response, add it to messages

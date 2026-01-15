@@ -14,8 +14,10 @@ from assistant_prompts import IGNORED_KEYWORDS_DICT
 
 from time import sleep
 
-def simple_chat(prompt: str, api_key: str = None) -> Dict[str, Any]:
+def simple_chat(prompt: str, api_key: str = None, attached_files: List[Dict[str, str]] = None) -> Dict[str, Any]:
     ic(prompt)  # Using icecream for debugging
+    if attached_files:
+        ic(f"Processing {len(attached_files)} attached files")
 
     response: str = "Hello! This is a simple chat response to your prompt."
 
@@ -44,7 +46,7 @@ def simple_chat(prompt: str, api_key: str = None) -> Dict[str, Any]:
 
     crew_inputs = create_crew_inputs({
         "user_prompt": prompt,
-    }, file_history)
+    }, file_history, attached_files)
 
     # ic(crew_inputs)
 
@@ -121,6 +123,8 @@ def create_simple_task(agent: Agent) -> Task:
 
                 Considering as well the conversation history: "{{conversation_history}}"
 
+                Considering the user attached files: "{{attached_files}}"
+
                 {TASK_DESCRIPTION}
             """
         ,
@@ -166,7 +170,7 @@ def is_memory_file_valid(file_history: FileChatMessageHistory) -> bool:
         return False
     
 # create crew inputs
-def create_crew_inputs(crew_inputs: dict[str, str], file_history: FileChatMessageHistory) -> dict:
+def create_crew_inputs(crew_inputs: dict[str, str], file_history: FileChatMessageHistory, attached_files: List[Dict[str, str]] = None) -> dict:
 
 
     # IMPORTANTE: debe ser una lista vacía
@@ -185,6 +189,18 @@ def create_crew_inputs(crew_inputs: dict[str, str], file_history: FileChatMessag
     
     # Add the formatted history to inputs
     crew_inputs["conversation_history"] = formatted_history
+
+    # Format attached files
+    formatted_attached_files = ""
+    if attached_files:
+        formatted_attached_files = "\nAttached Files:\n"
+        for f in attached_files:
+            filename = f.get('filename', 'Unknown')
+            filepath = f.get('filepath', 'Unknown Path')
+            filecontent = f.get('filecontent', '')
+            formatted_attached_files += f"File: {filename} (Path: {filepath})\nContent:\n{filecontent}\n-------------------\n"
+    
+    crew_inputs["attached_files"] = formatted_attached_files
 
     crew_inputs.update(IGNORED_KEYWORDS_DICT)
 

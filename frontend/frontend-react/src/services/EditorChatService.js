@@ -11,12 +11,26 @@ class EditorChatService {
    * @param {Function} onStreamChunk - Callback para manejar streaming (opcional)
    * @returns {Promise<Object>} - Resultado de la operación
    */
-  static async sendMessage(message, api_key) {
+  static async sendMessage(message, api_key, projectSlug, attachedFiles = []) {
     try {
+      let processedFiles = [];
+      
+      if (attachedFiles && attachedFiles.length > 0) {
+        processedFiles = await Promise.all(attachedFiles.map(async (filePath) => {
+          const content = await this.getFileContent(projectSlug, filePath);
+          return {
+            filename: filePath.split('/').pop(),
+            filepath: filePath,
+            filecontent: content || ''
+          };
+        }));
+      }
+
       // Preparar datos para la petición
       const requestData = {
         prompt: message,
         api_key: api_key || null,
+        attached_files: processedFiles
       };
       
       const response = await fetch(`${this.API_BASE_URL}/api/chat`, {

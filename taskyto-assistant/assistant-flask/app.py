@@ -32,8 +32,9 @@ def chat_simple():
 
     promt = data.get("prompt")
     api_key = data.get("api_key", None)
+    attached_files = data.get("attached_files", [])
 
-    response = simple_chat(prompt=promt, api_key=api_key)
+    response = simple_chat(prompt=promt, api_key=api_key, attached_files=attached_files)
 
     print("-------------------")  # Debugging output
     # print(response)  # Debugging output
