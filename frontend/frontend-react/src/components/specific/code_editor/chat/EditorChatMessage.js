@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Avatar, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { Box, Paper, Typography, Avatar, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Chip } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 // Importamos 'vs' para el modo claro junto con 'vscDarkPlus' para el oscuro
@@ -305,7 +305,7 @@ const CodeRenderer = ({ node, inline, className, children, projectSlug, files, o
   };
 
 
-const EditorChatMessage = ({ message, isUser, isError = false, isStreaming = false, timestamp, projectSlug, files, onFileSystemChange, onUpdateOpenFile, openFiles, theme }) => {
+const EditorChatMessage = ({ message, isUser, isError = false, isStreaming = false, timestamp, projectSlug, files, onFileSystemChange, onUpdateOpenFile, openFiles, theme, attachments }) => {
   const formattedTime = timestamp ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   
   // Determinar colores basados en el tema
@@ -429,7 +429,28 @@ const EditorChatMessage = ({ message, isUser, isError = false, isStreaming = fal
           }}
         >
           {isUser ? (
-            <Typography variant="body2">{message}</Typography>
+            <>
+              <Typography variant="body2">{message}</Typography>
+              {attachments && attachments.length > 0 && (
+                <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {attachments.map((file, index) => (
+                    <Chip 
+                      key={index}
+                      label={file.split('/').pop()} 
+                      size="small" 
+                      sx={{
+                        backgroundColor: theme?.chatHeader || '#f0f0f0',
+                        color: theme?.text || 'inherit',
+                        border: `1px solid ${theme?.border || '#ccc'}`,
+                        height: '24px',
+                        fontSize: '0.75rem',
+                        '& .MuiChip-label': { px: 1 }
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
+            </>
           ) : (
              <ReactMarkdown
               components={{

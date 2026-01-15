@@ -91,12 +91,13 @@ const EditorChat = ({
     }
   };
 
-  const handleSendMessage = async (text) => {
+  const handleSendMessage = async (text, attachedFiles = []) => {
     // Add user message to chat
     const userMessage = {
       text,
       isUser: true,
-      timestamp: new Date()
+      timestamp: new Date(),
+      attachments: attachedFiles // Store attachments in message history conceptually
     };
     
     setMessages(prevMessages => [...prevMessages, userMessage]);
@@ -104,9 +105,9 @@ const EditorChat = ({
     setStreamedResponse('');
     
     try {
-      // Get all files in the project to provide context
-      // This would need to be implemented in EditorChatService
-      // const projectFiles = await EditorChatService.getProjectFiles(projectSlug);
+      // Get files content if there are attachments
+      // Note: In a real implementation we would fetch the content of attachedFiles here
+      // content = await EditorChatService.getFileContent(projectSlug, attachedFiles[0])...
 
       // FABADA: Pillar la API key
       const userData = await MongoDBService.getCurrentUser();
@@ -184,7 +185,7 @@ const EditorChat = ({
     setConfirmClearOpen(false);
   };
 
-  if (!isOpen) return null;
+  // if (!isOpen) return null; // Removed to preserve state (Issue 1)
 
   return (
     <Box
@@ -218,20 +219,37 @@ const EditorChat = ({
         </Box>
         
         <Box>
-          <Tooltip title="Clear conversation">
+          {isOpen ? (
+            <Tooltip title="Clear conversation">
+              <IconButton 
+                size="small" 
+                onClick={handleClearConversation} 
+                sx={{ color: theme.iconColor, mr: 1 }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
             <IconButton 
               size="small" 
               onClick={handleClearConversation} 
-              sx={{ color: theme.iconColor, mr: 1 }} // Usar tema
+              sx={{ color: theme.iconColor, mr: 1 }}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>
-          </Tooltip>
-          <Tooltip title="Close">
+          )}
+
+          {isOpen ? (
+            <Tooltip title="Close">
+              <IconButton size="small" onClick={onClose} sx={{ color: theme.iconColor }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
             <IconButton size="small" onClick={onClose} sx={{ color: theme.iconColor }}>
               <CloseIcon fontSize="small" />
             </IconButton>
-          </Tooltip>
+          )}
         </Box>
       </Box>
 
@@ -295,6 +313,7 @@ const EditorChat = ({
               onUpdateOpenFile={onUpdateOpenFile}
               openFiles={openFiles}
               theme={theme} // <--- Pasamos el tema aquí
+              attachments={msg.attachments}
             />
           ))
         )}
@@ -339,6 +358,7 @@ const EditorChat = ({
         theme={theme} // Pasar el tema al input
         history={messages.filter(m => m.isUser).map(m => m.text)}
         shouldFocus={isOpen}
+        files={files} // Pass files for attachment dialog
       />
 
       {/* Confirm clear conversation dialog */}
