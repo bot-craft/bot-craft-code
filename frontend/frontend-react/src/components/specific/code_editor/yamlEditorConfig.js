@@ -28,6 +28,53 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         return processFiles(filesRef.current);
     };
 
+    // Función auxiliar para calcular la distancia de Levenshtein
+    const levenshteinDistance = (a, b) => {
+        if (!a || !b) return 0;
+        const matrix = [];
+
+        for (let i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+
+        for (let j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+
+        for (let i = 1; i <= b.length; i++) {
+            for (let j = 1; j <= a.length; j++) {
+                if (b.charAt(i-1) === a.charAt(j-1)) {
+                    matrix[i][j] = matrix[i-1][j-1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i-1][j-1] + 1,
+                        matrix[i][j-1] + 1,
+                        matrix[i-1][j] + 1
+                    );
+                }
+            }
+        }
+
+        return matrix[b.length][a.length];
+    };
+
+    // Función auxiliar para encontrar el módulo más cercano
+    const findClosestModule = (target, modules) => {
+        let closestMatch = '';
+        let minDistance = Infinity;
+        
+        modules.forEach(m => {
+            const normalizedExisting = m.replace(/\.yaml$/, '');
+            const dist = levenshteinDistance(target, normalizedExisting);
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestMatch = normalizedExisting;
+            }
+        });
+        
+        return closestMatch;
+    };
+
     // Validación de referencias
     const validateReferences = (model) => {
         if (!model) return;
@@ -78,10 +125,14 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                             });
 
                             if (!moduleExists) {
+                                // Find closest match using shared helper
+                                const closestMatch = findClosestModule(modulePath, existingModules);
+
                                 const markerData = {
                                     moduleName: modulePath.split('/').pop(),
                                     modulePath: modulePath,
-                                    isRelativePath: modulePath.includes('/')
+                                    isRelativePath: modulePath.includes('/'),
+                                    closestMatch: closestMatch
                                 };
 
                                 markers.push({
@@ -134,10 +185,14 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             });
             
             if (!moduleExists) {
+                // Find closest match using shared helper
+                const closestMatch = findClosestModule(modulePath, existingModules);
+
                 const markerData = {
                     moduleName: modulePath.split('/').pop(),
                     modulePath: modulePath,
-                    isRelativePath: modulePath.includes('/')
+                    isRelativePath: modulePath.includes('/'),
+                    closestMatch: closestMatch
                 };
                 
                 markers.push({
@@ -522,7 +577,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                         return;
                     }
 
-                    const { moduleName, modulePath, isRelativePath } = markerData;
+                    const { moduleName, modulePath, isRelativePath, closestMatch } = markerData;
                     const basePath = isRelativePath ? modulePath.split('/').slice(0, -1).join('/') : '';
 
                     const action = {
@@ -545,6 +600,30 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     
                     // console.log('Creating action:', action);
                     actions.push(action);
+
+                    // Add Rename action if closestMatch exists
+                    if (closestMatch) {
+                        actions.push({
+                            title: `Rename to '${closestMatch}'`,
+                            kind: "quickfix",
+                            diagnostics: [marker],
+                            isPreferred: false,
+                            edit: {
+                                edits: [{
+                                    resource: model.uri,
+                                    textEdit: {
+                                        range: {
+                                            startLineNumber: marker.startLineNumber,
+                                            startColumn: marker.startColumn,
+                                            endLineNumber: marker.endLineNumber,
+                                            endColumn: marker.endColumn
+                                        },
+                                        text: closestMatch
+                                    }
+                                }]
+                            }
+                        });
+                    }
                 });
                 
             // Añadir acciones para palabras clave inválidas
@@ -727,7 +806,6 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         return fields;
     };
 
-    // Proveedor de autocompletado para variables en texto
     const textVariablesProvider = monaco.languages.registerCompletionItemProvider('yaml', {
         triggerCharacters: ['{', '}'],
         provideCompletionItems: (model, position) => {
@@ -756,36 +834,6 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         }
     });
     disposables.push(textVariablesProvider);
-
-    // Función auxiliar para calcular la distancia de Levenshtein
-    const levenshteinDistance = (a, b) => {
-        if (!a || !b) return 0;
-        const matrix = [];
-
-        for (let i = 0; i <= b.length; i++) {
-            matrix[i] = [i];
-        }
-
-        for (let j = 0; j <= a.length; j++) {
-            matrix[0][j] = j;
-        }
-
-        for (let i = 1; i <= b.length; i++) {
-            for (let j = 1; j <= a.length; j++) {
-                if (b.charAt(i-1) === a.charAt(j-1)) {
-                    matrix[i][j] = matrix[i-1][j-1];
-                } else {
-                    matrix[i][j] = Math.min(
-                        matrix[i-1][j-1] + 1,
-                        matrix[i][j-1] + 1,
-                        matrix[i-1][j] + 1
-                    );
-                }
-            }
-        }
-
-        return matrix[b.length][a.length];
-    };
 
     return {
         dispose: () => {
