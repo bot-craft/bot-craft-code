@@ -35,12 +35,15 @@ def chat_simple():
     promt = data.get("prompt")
     api_key = data.get("api_key", None)
     attached_files = data.get("attached_files", [])
+    current_file = data.get("current_file", {})
+
+    ic(current_file)
 
     filter_response = filter_request(prompt=promt, api_key=api_key)
 
     if (filter_response.get("is_valid")):
 
-        response = simple_chat(prompt=promt, api_key=api_key, attached_files=attached_files)
+        response = simple_chat(prompt=promt, api_key=api_key, attached_files=attached_files, current_file=current_file)
     else:
         response = filter_response
 

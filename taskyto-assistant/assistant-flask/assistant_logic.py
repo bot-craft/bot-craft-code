@@ -46,7 +46,7 @@ FILTER_LLM_MODEL = "gpt-5-nano"
 FILTER_RESPONSE_LLM_MODEL = "gpt-4.1-mini"
 
 
-def simple_chat(prompt: str, api_key: str = None, attached_files: List[Dict[str, str]] = None) -> Dict[str, Any]:
+def simple_chat(prompt: str, api_key: str = None, attached_files: List[Dict[str, str]] = None, current_file: Dict[str, str] = None) -> Dict[str, Any]:
     ic(prompt)  # Using icecream for debugging
     if attached_files:
         ic(f"Processing {len(attached_files)} attached files")
@@ -78,7 +78,7 @@ def simple_chat(prompt: str, api_key: str = None, attached_files: List[Dict[str,
 
     crew_inputs = create_crew_inputs({
         "user_prompt": prompt,
-    }, file_history, attached_files)
+    }, file_history, attached_files, current_file)
 
     # ic(crew_inputs)
 
@@ -262,6 +262,8 @@ def create_simple_task(agent: Agent) -> Task:
 
                 Considering as well the conversation history: "{{conversation_history}}"
 
+                Considering the current user file (the user has on its active tab): "{{current_file}}"
+
                 Considering the user attached files: "{{attached_files}}"
 
                 {TASK_DESCRIPTION}
@@ -309,7 +311,7 @@ def is_memory_file_valid(file_history: FileChatMessageHistory) -> bool:
         return False
     
 # create crew inputs
-def create_crew_inputs(crew_inputs: dict[str, str], file_history: FileChatMessageHistory, attached_files: List[Dict[str, str]] = None) -> dict:
+def create_crew_inputs(crew_inputs: dict[str, str], file_history: FileChatMessageHistory, attached_files: List[Dict[str, str]] = None, current_file: Dict[str, str] = None) -> dict:
 
 
     # IMPORTANTE: debe ser una lista vacía
@@ -340,6 +342,18 @@ def create_crew_inputs(crew_inputs: dict[str, str], file_history: FileChatMessag
             formatted_attached_files += f"File: {filename} (Path: {filepath})\nContent:\n{filecontent}\n-------------------\n"
     
     crew_inputs["attached_files"] = formatted_attached_files
+    
+    # Current File
+    formatted_current_file = ""
+    if current_file:
+        formatted_attached_files = "\nCurrent File:\n"
+        
+        filename = current_file.get('filename', 'Unknown')
+        filepath = current_file.get('filepath', 'Unknown Path')
+        filecontent = current_file.get('filecontent', '')
+        formatted_current_file += f"File: {filename} (Path: {filepath})\nContent:\n{filecontent}\n-------------------\n"
+    
+    crew_inputs["current_file"] = formatted_attached_files
 
     crew_inputs.update(IGNORED_KEYWORDS_DICT)
 
