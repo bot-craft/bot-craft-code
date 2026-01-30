@@ -11,6 +11,9 @@ services:
       - "4000:4000"
     volumes:
       - ./assistant-flask:/home/ubuntu/app/assistant-flask
+    
+    environment:
+      - DEBUG_MODE=true
 
     restart: unless-stopped
     

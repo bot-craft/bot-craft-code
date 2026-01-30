@@ -3,7 +3,9 @@ from flask_cors import CORS  # Importar Flask-CORS
 import os
 import logging
 
-from assistant_logic import simple_chat
+from assistant_logic import simple_chat, filter_request
+
+from assistant_prompts import GREETING_RESPONSE, OUT_OF_SCOPE_RESPONSE
 
 from icecream import install
 install()  # Initialize icecream for debugging
@@ -34,7 +36,13 @@ def chat_simple():
     api_key = data.get("api_key", None)
     attached_files = data.get("attached_files", [])
 
-    response = simple_chat(prompt=promt, api_key=api_key, attached_files=attached_files)
+    filter_response = filter_request(prompt=promt, api_key=api_key)
+
+    if (filter_response.get("is_valid")):
+
+        response = simple_chat(prompt=promt, api_key=api_key, attached_files=attached_files)
+    else:
+        response = filter_response
 
     print("-------------------")  # Debugging output
     # print(response)  # Debugging output
