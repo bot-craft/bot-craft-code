@@ -58,9 +58,9 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         return matrix[b.length][a.length];
     };
 
-    // Función auxiliar para encontrar el módulo más cercano
-    const findClosestModule = (target, modules) => {
-        let closestMatch = '';
+    // Función auxiliar para encontrar los módulos más cercanos
+    const findClosestModules = (target, modules) => {
+        let closestMatches = [];
         let minDistance = Infinity;
         
         modules.forEach(m => {
@@ -68,11 +68,13 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             const dist = levenshteinDistance(target, normalizedExisting);
             if (dist < minDistance) {
                 minDistance = dist;
-                closestMatch = normalizedExisting;
+                closestMatches = [normalizedExisting];
+            } else if (dist === minDistance) {
+                closestMatches.push(normalizedExisting);
             }
         });
         
-        return closestMatch;
+        return closestMatches;
     };
 
     // Validación de referencias
@@ -125,14 +127,14 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                             });
 
                             if (!moduleExists) {
-                                // Find closest match using shared helper
-                                const closestMatch = findClosestModule(modulePath, existingModules);
+                                // Find closest matches using shared helper
+                                const closestMatches = findClosestModules(modulePath, existingModules);
 
                                 const markerData = {
                                     moduleName: modulePath.split('/').pop(),
                                     modulePath: modulePath,
                                     isRelativePath: modulePath.includes('/'),
-                                    closestMatch: closestMatch
+                                    closestMatches: closestMatches
                                 };
 
                                 markers.push({
@@ -185,14 +187,14 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             });
             
             if (!moduleExists) {
-                // Find closest match using shared helper
-                const closestMatch = findClosestModule(modulePath, existingModules);
+                // Find closest matches using shared helper
+                const closestMatches = findClosestModules(modulePath, existingModules);
 
                 const markerData = {
                     moduleName: modulePath.split('/').pop(),
                     modulePath: modulePath,
                     isRelativePath: modulePath.includes('/'),
-                    closestMatch: closestMatch
+                    closestMatches: closestMatches
                 };
                 
                 markers.push({
@@ -258,21 +260,84 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         // Estado para la sección data
         let inDataSection = false;
         let dataSectionIndent = 0;
+        let dataKeysSeen = new Set();
 
         let moduleType = null;
         let minIndent = Infinity;
+        let moduleTypeLineIndex = -1;
+        let moduleTypeIndent = 0;
+
+        let inOnSuccess = false;
+        let onSuccessIndent = 0;
+        let inResponse = false;
+        let responseIndent = 0;
 
         // Detectar kind principal
-        allLines.forEach((line) => {
+        allLines.forEach((line, index) => {
             const kindMatch = line.match(/^(\s*)kind\s*:\s*(\w+)\s*$/);
             if (kindMatch) {
                 const [, indent, type] = kindMatch;
                 if (indent.length < minIndent) {
                     minIndent = indent.length;
                     moduleType = type;
+                    moduleTypeLineIndex = index;
+                    moduleTypeIndent = indent.length;
                 }
             }
         });
+
+        // Validar tipo de módulo desconocido
+        const supportedKinds = ['menu', 'question_answering', 'data_gathering', 'action'];
+
+        if (moduleType && !supportedKinds.includes(moduleType)) {
+             markers.push({
+                 severity: monaco.MarkerSeverity.Error,
+                 message: `Unknown module type '${moduleType}'. Supported types: ${supportedKinds.join(', ')}`,
+                 startLineNumber: moduleTypeLineIndex + 1,
+                 startColumn: moduleTypeIndent + 1,
+                 // Subrayar toda la línea
+                 endLineNumber: moduleTypeLineIndex + 1,
+                 endColumn: allLines[moduleTypeLineIndex].length + 1,
+                 code: 'unknown-kind',
+                 source: 'yaml-validator'
+             });
+
+             // Subrayar el resto del fichero con una advertencia
+             if (moduleTypeLineIndex + 2 <= allLines.length) {
+                 markers.push({
+                     severity: monaco.MarkerSeverity.Warning,
+                     message: `Content ignored due to unknown module type '${moduleType}'`,
+                     startLineNumber: moduleTypeLineIndex + 2,
+                     startColumn: 1,
+                     endLineNumber: allLines.length,
+                     endColumn: allLines[allLines.length - 1].length + 1,
+                     code: 'ignored-content',
+                     source: 'yaml-validator'
+                 });
+             }
+
+             // Subrayar lo que está por encima de la línea de kind con una advertencia
+             if (moduleTypeLineIndex > 0) {
+                 markers.push({
+                     severity: monaco.MarkerSeverity.Warning,
+                     message: `Content ignored due to unknown module type '${moduleType}'`,
+                     startLineNumber: 1,
+                     startColumn: 1,
+                     endLineNumber: moduleTypeLineIndex,
+                     endColumn: allLines[moduleTypeLineIndex - 1].length + 1,
+                     code: 'ignored-content',
+                     source: 'yaml-validator'
+                 });
+             }
+
+             // Mantener markers previos (si existen) y añadir los nuevos
+             const existingMarkers = monaco.editor.getModelMarkers({ owner: 'yaml-validator' });
+             const referenceMarkers = existingMarkers.filter(m => m.code === 'missing-module');
+             const filteredReferenceMarkers = referenceMarkers.filter(m => m.resource.path === model.uri.path);
+             
+             monaco.editor.setModelMarkers(model, 'yaml-validator', [...markers, ...filteredReferenceMarkers]);
+             return;
+        }
 
         if (!moduleType || !validKeywordsByType[moduleType]) return markers;
         
@@ -297,12 +362,35 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
         }
 
         allLines.forEach((line, index) => {
+            // Check indents to exit sections
+            const currentIndent = line.match(/^\s*/)[0].length;
+            
+            // Only update structural state if line is not empty
+            if (line.trim()) {
+                if (inResponse && currentIndent <= responseIndent) inResponse = false;
+                if (inOnSuccess && currentIndent <= onSuccessIndent) {
+                    inOnSuccess = false;
+                    inResponse = false;
+                }
+                
+                // Check entry to sections
+                if (moduleType === 'data_gathering' && /^\s*on-success\s*:\s*$/.test(line)) {
+                    inOnSuccess = true;
+                    onSuccessIndent = currentIndent;
+                }
+                if (inOnSuccess && /^\s*response\s*:\s*$/.test(line)) {
+                    inResponse = true;
+                    responseIndent = currentIndent;
+                }
+            }
+
             // Comprobación de sección data
             if (moduleType === 'data_gathering' || moduleType === 'action') {
                 const dataMatch = line.match(/^(\s*)data\s*:/);
                 if (dataMatch) {
                     inDataSection = true;
                     dataSectionIndent = dataMatch[1].length;
+                    dataKeysSeen.clear();
                     // Continuamos para validar la keyword 'data' misma
                 } else if (inDataSection) {
                     // Si la línea está vacía, la ignoramos y mantenemos el estado
@@ -317,7 +405,26 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     if (!isListItem && currentIndent <= dataSectionIndent) {
                         inDataSection = false;
                     } else {
-                        // Si estamos dentro de data, saltamos validación
+                        // Si estamos dentro de data, verificamos duplicados
+                        const keyMatch = line.match(/^\s*-\s*([\w]+)\s*:/);
+                        if (keyMatch) {
+                            const key = keyMatch[1];
+                            if (dataKeysSeen.has(key)) {
+                                 const startCol = line.indexOf(key) + 1;
+                                 markers.push({
+                                     severity: monaco.MarkerSeverity.Warning,
+                                     message: `Duplicate property '${key}' in data section`,
+                                     startLineNumber: index + 1,
+                                     startColumn: startCol,
+                                     endLineNumber: index + 1,
+                                     endColumn: startCol + key.length,
+                                     code: 'duplicate-data-key',
+                                     source: 'yaml-validator'
+                                 });
+                            } else {
+                                dataKeysSeen.add(key);
+                            }
+                        }
                         return;
                     }
                 }
@@ -335,7 +442,8 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     
                     // Si no tiene pipe, analizar esta línea también
                     if (!textMatch[2]) {
-                        validateTextVariables(line, index, dataFields, markers, model, monaco);
+                        const extraVars = (moduleType === 'data_gathering' && inResponse) ? ['result'] : [];
+                        validateTextVariables(line, index, dataFields, markers, model, monaco, extraVars);
                     }
                     return;
                 }
@@ -388,7 +496,8 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     inTextField = false;
                 } else {
                     // Analizar variables en la línea del bloque de texto
-                    validateTextVariables(line, index, dataFields, markers, model, monaco);
+                    const extraVars = (moduleType === 'data_gathering' && inResponse) ? ['result'] : [];
+                    validateTextVariables(line, index, dataFields, markers, model, monaco, extraVars);
                     return;
                 }
             }
@@ -406,14 +515,48 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             }
 
             // Validación normal si no es multiline
-            const keywordMatch = line.match(/^(\s*(?:-\s*)?)([\w-]+)\s*:/);
+            const keywordMatch = line.match(/^(\s*(?:-\s*)?)([\w-]+)\s*:\s*(.*)$/);
             if (keywordMatch) {
-                const [, indent, keyword] = keywordMatch;
+                const [, indent, keyword, value] = keywordMatch;
                 if (keyword === 'kind' || validKeywordsByType[moduleType].has(keyword)) {
+                    
                     // Si es 'text' sin pipe, analizar por variables
-                    if (keyword === 'text' && moduleType === 'data_gathering' || moduleType === 'action') {
-                        validateTextVariables(line, index, dataFields, markers, model, monaco);
+                    if (keyword === 'text' && (moduleType === 'data_gathering' || moduleType === 'action')) {
+                        const extraVars = (moduleType === 'data_gathering' && inResponse) ? ['result'] : [];
+                        validateTextVariables(line, index, dataFields, markers, model, monaco, extraVars);
                     }
+                    
+                    // Validar valor de rephrase
+                    if (keyword === 'rephrase') {
+                       const validRephraseValues = ['direct', 'simple', 'in-caller'];
+                       const trimmedValue = value.trim();
+                       if (trimmedValue && !validRephraseValues.includes(trimmedValue)) {
+                           // Usar findClosestModules para obtener sugerencias
+                           const matches = findClosestModules(trimmedValue, validRephraseValues); 
+                           const suggestion = matches.length > 0 ? matches[0] : '';
+                           
+                           markers.push({
+                               severity: monaco.MarkerSeverity.Error,
+                               message: `Invalid value for 'rephrase'. Allowed values: ${validRephraseValues.join(', ')}`,
+                               startLineNumber: index + 1,
+                               startColumn: line.indexOf(trimmedValue) + 1,
+                               endLineNumber: index + 1,
+                               endColumn: line.indexOf(trimmedValue) + trimmedValue.length + 1,
+                               code: 'invalid-rephrase-value',
+                               source: 'yaml-validator',
+                               relatedInformation: [{
+                                   message: JSON.stringify({
+                                       value: trimmedValue,
+                                       suggestion: suggestion
+                                   }),
+                                   resource: model.uri,
+                                   startLineNumber: index + 1,
+                                   startColumn: line.indexOf(trimmedValue) + 1
+                               }]
+                           });
+                       }
+                    }
+
                     return;
                 }
 
@@ -448,13 +591,13 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
     };
 
     // Modificamos la función validateTextVariables para capturar y preservar el contenido completo
-    const validateTextVariables = (line, lineIndex, dataFields, markers, model, monaco) => {
+    const validateTextVariables = (line, lineIndex, dataFields, markers, model, monaco, extraAllowedVars = []) => {
         // Expresión regular para encontrar variables entre llaves
         const variableRegex = /\{([^{}]+)\}/g;
         let match;
         
-        // Si no hay campos de datos definidos o la línea no contiene llaves, salir
-        if (dataFields.size === 0 || !line.includes('{')) {
+        // Si no hay campos de datos definidos (y no hay variables extra) o la línea no contiene llaves, salir
+        if ((dataFields.size === 0 && extraAllowedVars.length === 0) || !line.includes('{')) {
             return;
         }
         
@@ -465,13 +608,16 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
             const startPos = match.index; // Posición de la llave de apertura
             const endPos = match.index + fullMatch.length; // Posición después de la llave de cierre
             
-            // Verificar si la variable existe en dataFields
-            if (!dataFields.has(varName)) {
+            // Verificar si la variable existe en dataFields o en extraAllowedVars
+            if (!dataFields.has(varName) && !extraAllowedVars.includes(varName)) {
                 // Encontrar la sugerencia más cercana
                 let closestMatch = '';
                 let minDistance = Infinity;
                 
-                dataFields.forEach(field => {
+                // Combinar campos de datos y variables extra para sugerencias
+                const allCandidates = [...Array.from(dataFields), ...extraAllowedVars];
+
+                allCandidates.forEach(field => {
                     const distance = levenshteinDistance(varName, field);
                     if (distance < minDistance) {
                         minDistance = distance;
@@ -507,9 +653,13 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
 
     // Eliminar el MutationObserver y usar un método público para actualizar
     const updateValidation = () => {
-        if (currentModel) {
-            validateReferences(currentModel);
-        }
+        const models = monaco.editor.getModels();
+        models.forEach(model => {
+             if (model.getLanguageId() === 'yaml') {
+                 validateReferences(model);
+                 validateModuleKeywords(model);
+             }
+        });
     };
 
     // Single completion provider for 'kind' field
@@ -606,6 +756,23 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
     });
     disposables.push(referencesCompletionProvider);
 
+    const rephraseCompletionProvider = monaco.languages.registerCompletionItemProvider('yaml', {
+        triggerCharacters: [':', ' '],
+        provideCompletionItems: (model, position) => {
+            const line = model.getLineContent(position.lineNumber);
+            if (/^\s*rephrase\s*:\s*/.test(line)) {
+                 const suggestions = ['direct', 'simple', 'in-caller'].map(val => ({
+                     label: val,
+                     kind: monaco.languages.CompletionItemKind.EnumMember,
+                     insertText: val
+                 }));
+                 return { suggestions };
+            }
+            return { suggestions: [] };
+        }
+    });
+    disposables.push(rephraseCompletionProvider);
+
     // Modificar el code action provider para corregir el problema del quick fix
     const codeActionProvider = monaco.languages.registerCodeActionProvider('yaml', {
         providedCodeActionKinds: ['quickfix'],
@@ -623,7 +790,7 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                         return;
                     }
 
-                    const { moduleName, modulePath, isRelativePath, closestMatch } = markerData;
+                    const { moduleName, modulePath, isRelativePath, closestMatches } = markerData;
                     const basePath = isRelativePath ? modulePath.split('/').slice(0, -1).join('/') : '';
 
                     const action = {
@@ -647,13 +814,44 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                     // console.log('Creating action:', action);
                     actions.push(action);
 
-                    // Add Rename action if closestMatch exists
-                    if (closestMatch) {
+                    // Add Rename actions if closestMatches exist
+                    if (closestMatches && closestMatches.length > 0) {
+                        closestMatches.forEach(match => {
+                            actions.push({
+                                title: `Rename to '${match}'`,
+                                kind: "quickfix",
+                                diagnostics: [marker],
+                                isPreferred: false,
+                                edit: {
+                                    edits: [{
+                                        resource: model.uri,
+                                        textEdit: {
+                                            range: {
+                                                startLineNumber: marker.startLineNumber,
+                                                startColumn: marker.startColumn,
+                                                endLineNumber: marker.endLineNumber,
+                                                endColumn: marker.endColumn
+                                            },
+                                            text: match
+                                        }
+                                    }]
+                                }
+                            });
+                        });
+                    }
+                });
+
+            // Añadir acciones para tipos de módulo desconocidos
+            context.markers
+                .filter(marker => marker.code === 'unknown-kind')
+                .forEach(marker => {
+                    const supportedKinds = ['menu', 'question_answering', 'data_gathering', 'action'];
+                    supportedKinds.forEach(kind => {
                         actions.push({
-                            title: `Rename to '${closestMatch}'`,
+                            title: `Change kind to '${kind}'`,
                             kind: "quickfix",
                             diagnostics: [marker],
-                            isPreferred: false,
+                            isPreferred: true,
                             edit: {
                                 edits: [{
                                     resource: model.uri,
@@ -664,12 +862,12 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                                             endLineNumber: marker.endLineNumber,
                                             endColumn: marker.endColumn
                                         },
-                                        text: closestMatch
+                                        text: `kind: ${kind}`
                                     }
                                 }]
                             }
                         });
-                    }
+                    });
                 });
                 
             // Añadir acciones para palabras clave inválidas
@@ -702,6 +900,67 @@ export const configureYamlEditor = (monaco, projectSlug, filesRef, moduleHandler
                                 }
                             }]
                         }
+                    });
+                });
+
+            // Añadir acciones para valores de rephrase inválidos
+            context.markers
+                .filter(marker => marker.code === 'invalid-rephrase-value')
+                .forEach(marker => {
+                    const validRephraseValues = ['direct', 'simple', 'in-caller'];
+                    const markerData = marker.relatedInformation?.[0] ? 
+                        JSON.parse(marker.relatedInformation[0].message) : null;
+                    
+                    // Si tenemos una sugerencia directa (por levenshtein), ponerla primero
+                    if (markerData && markerData.suggestion) {
+                         const { suggestion } = markerData;
+                         actions.push({
+                            title: `Change to '${suggestion}'`,
+                            kind: "quickfix",
+                            diagnostics: [marker],
+                            isPreferred: true,
+                            edit: {
+                                edits: [{
+                                    resource: model.uri,
+                                    textEdit: {
+                                        range: {
+                                            startLineNumber: marker.startLineNumber,
+                                            startColumn: marker.startColumn,
+                                            endLineNumber: marker.endLineNumber,
+                                            endColumn: marker.endColumn
+                                        },
+                                        text: suggestion
+                                    }
+                                }]
+                            }
+                        });
+                    }
+
+                    // Ofrecer también el resto de opciones válidas
+                    validRephraseValues.forEach(val => {
+                         // Evitar duplicar la sugerencia principal
+                         if (markerData && markerData.suggestion === val) return;
+
+                         actions.push({
+                            title: `Change to '${val}'`,
+                            kind: "quickfix",
+                            diagnostics: [marker],
+                            isPreferred: false,
+                            edit: {
+                                edits: [{
+                                    resource: model.uri,
+                                    textEdit: {
+                                        range: {
+                                            startLineNumber: marker.startLineNumber,
+                                            startColumn: marker.startColumn,
+                                            endLineNumber: marker.endLineNumber,
+                                            endColumn: marker.endColumn
+                                        },
+                                        text: val
+                                    }
+                                }]
+                            }
+                        });
                     });
                 });
                 
