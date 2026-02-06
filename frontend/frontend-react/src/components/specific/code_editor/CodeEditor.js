@@ -16,6 +16,11 @@ import EditorChat from './chat/EditorChat';
 import ThemeToggleButton from './ThemeToggleButton'; // Importar nuevo componente
 
 import { configureYamlEditor } from './yamlEditorConfig';
+import VisualEditor from './VisualEditor';
+import { yamlToNodes, nodesToYaml } from '../../../utils/yamlHelper';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import EditIcon from '@mui/icons-material/Edit';
+import { IconButton, Tooltip } from '@mui/material';
 
 // Definición de temas
 const themes = {
@@ -78,6 +83,86 @@ const CodeEditor = ({ projectSlug }) => {
   // Estado para el tema (por defecto oscuro)
   const [isDarkMode, setIsDarkMode] = useState(true);
   const currentTheme = isDarkMode ? themes.dark : themes.light;
+
+  // Visual Editor State
+  const [isVisualMode, setIsVisualMode] = useState(false);
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+
+  const isYaml = activeFile && (activeFile.endsWith('.yaml') || activeFile.endsWith('.yml'));
+
+  // Utility to find all yaml files in the file tree
+  const getAllYamlFiles = (filesList) => {
+    let yamls = [];
+    filesList.forEach(file => {
+      if (file.type === 'directory' && file.children) {
+        yamls = [...yamls, ...getAllYamlFiles(file.children)];
+      } else if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
+        yamls.push(file);
+      }
+    });
+    return yamls;
+  };
+
+  const handleToggleVisualMode = async () => {
+    // Switch logic
+    if (!isVisualMode) {
+      // CODE -> VISUAL: Gather all YAML content
+      const allYamlFiles = getAllYamlFiles(files);
+      
+      const filesWithContent = await Promise.all(allYamlFiles.map(async (f) => {
+          // Check if open first
+          const openFile = openFiles.find(of => of.path === f.path);
+          if (openFile) return { path: f.path, content: openFile.content };
+          
+          // Fetch if not open
+          const content = await fetchFileContent(f.path);
+          return { path: f.path, content: content };
+      }));
+
+      const { nodes: newNodes, edges: newEdges } = yamlToNodes(filesWithContent);
+      setNodes(newNodes);
+      setEdges(newEdges);
+      
+      setIsVisualMode(true);
+    } else {
+      // VISUAL -> CODE
+      // Disable auto-sync for MVP as requested to avoid conflicts
+      // const yamlContent = nodesToYaml(nodes, edges);
+      // handleContentChange(yamlContent, activeFile);
+      
+      setIsVisualMode(false);
+    }
+  };
+
+  const onNodesChange = useCallback((changes) => {
+    setNodes((nds) => {
+        // Here we could trigger auto-save if we wanted real-time sync
+        return nds; 
+    });
+    // However, reactflow helper applyNodeChanges needs to be called in VisualEditor or here.
+    // We pass the raw handler to VisualEditor which calls applyNodeChanges, so we should just update state?
+    // VisualEditor code: onNodesChange(applyNodeChanges(changes, nodes))
+    // So VisualEditor expects us to set state.
+    // Correction: VisualEditor uses: onNodesChange={handleNodesChange} where handleNodesChange calls setNodes(apply...)
+    // Wait, my VisualEditor implementation accepts `onNodesChange` and calls it with RESULT of applyNodeChanges?
+    // Let's check VisualEditor.js: 
+    // const handleNodesChange = (changes) => onNodesChange(applyNodeChanges(changes, nodes));
+    // So yes, `onNodesChange` prop here should take the NEW nodes list.
+  }, []);
+
+  // We need distinct handlers for the VisualEditor prop
+  const handleNodesChangeState = useCallback((newNodes) => {
+      setNodes(newNodes);
+      // Optional: Debounce save to YAML
+      // const yaml = nodesToYaml(newNodes, edges);
+      // debouncedSave(yaml, activeFile); 
+  }, []); // edges dependency if needed
+
+  const handleEdgesChangeState = useCallback((newEdges) => {
+      setEdges(newEdges);
+      // Optional: Debounce save
+  }, []); 
 
   const editorDisposables = React.useRef([]);
   const yamlEditorRef = React.useRef(null);
@@ -428,15 +513,27 @@ const CodeEditor = ({ projectSlug }) => {
               <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: 1, borderColor: currentTheme.border, overflow: 'hidden' }}>
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <EditorTabs
-                      openFiles={openFiles}
-                      activeFile={activeFile}
-                      onFileSelect={setActiveFile}
-                      onFileClose={handleFileClose}
-                      theme={currentTheme} // Pasar tema (necesitará actualización en siguiente paso)
-                    />
+                    {!isVisualMode && (
+                      <EditorTabs
+                        openFiles={openFiles}
+                        activeFile={activeFile}
+                        onFileSelect={setActiveFile}
+                        onFileClose={handleFileClose}
+                        theme={currentTheme} // Pasar tema (necesitará actualización en siguiente paso)
+                      />
+                    )}
+                    {isVisualMode && (
+                        <Box sx={{ p: 1, px: 2, fontWeight: 'bold', color: currentTheme.text }}>
+                             Visual Architecture Map (Global View)
+                        </Box>
+                    )}
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0, px: 1 }}>
+                    <Tooltip title={isVisualMode ? "Switch to Code" : "Switch to Visual"}>
+                      <IconButton onClick={handleToggleVisualMode} size="small" sx={{ color: currentTheme.iconColor, mr: 1 }}>
+                        {isVisualMode ? <EditIcon /> : <AccountTreeIcon />}
+                      </IconButton>
+                    </Tooltip>
                     <ThemeToggleButton 
                       isDarkMode={isDarkMode} 
                       onToggle={() => setIsDarkMode(!isDarkMode)} 
@@ -449,8 +546,19 @@ const CodeEditor = ({ projectSlug }) => {
                   </Box>
                 </Box>
                 
-                {activeFile && (
-                  /* AÑADIDO: Envolvemos el editor en un Box con flexGrow: 1 y overflow: hidden */
+                {/* Content Area */}
+                {/* Visual Mode: Show Graph | Code Mode: Show Editor only if activeFile */}
+                {isVisualMode ? (
+                   <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
+                      <VisualEditor 
+                        nodes={nodes} 
+                        edges={edges} 
+                        onNodesChange={handleNodesChangeState} 
+                        onEdgesChange={handleEdgesChangeState} 
+                      />
+                   </Box>
+                ) : (
+                  activeFile && (
                   <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
                     <Editor
                       height="100%"
@@ -491,6 +599,7 @@ const CodeEditor = ({ projectSlug }) => {
                       }}
                     />
                   </Box>
+                  )
                 )}
               </Box>
             </Panel>

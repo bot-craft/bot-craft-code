@@ -1,0 +1,84 @@
+/* src/components/specific/code_editor/VisualEditor.css */
+
+.react-flow__node {
+    font-size: 12px;
+    text-align: left;
+    border-radius: 8px;
+    border: 1px solid #777;
+    background: #1e1e1e; /* Dark theme default */
+    color: #fff;
+    width: 200px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  /* Header styling */
+  .node-header {
+    padding: 8px;
+    font-weight: bold;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .node-body {
+    padding: 8px;
+    background: #2d2d2d;
+    min-height: 40px;
+  }
+  
+  /* Type specific colors */
+  
+  /* Menu - Azul */
+  .node-menu .node-header {
+    background-color: #007bff;
+  }
+  .node-menu {
+    border-color: #007bff;
+  }
+  
+  /* Sequence - Púrpura */
+  .node-sequence .node-header {
+    background-color: #6f42c1;
+  }
+  .node-sequence {
+    border-color: #6f42c1;
+  }
+  
+  /* Action - Naranja */
+  .node-action .node-header {
+    background-color: #fd7e14;
+  }
+  .node-action {
+    border-color: #fd7e14;
+  }
+  
+  /* Data Gathering / QA - Verde */
+  .node-data-gathering .node-header {
+    background-color: #28a745;
+  }
+  .node-data-gathering {
+    border-color: #28a745;
+  }
+  
+  /* Python - Gris Oscuro */
+  .node-python .node-header {
+    background-color: #343a40;
+    font-family: monospace;
+  }
+  .node-python {
+    border-color: #555;
+    background: #222;
+  }
+  
+  /* Handles */
+  .react-flow__handle {
+    width: 8px;
+    height: 8px;
+    background: #aaa;
+  }
+  .react-flow__handle:hover {
+    background: #fff;
+  }
