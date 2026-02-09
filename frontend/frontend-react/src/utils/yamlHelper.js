@@ -1,16 +1,122 @@
 // src/utils/yamlHelper.js
 import yaml from 'js-yaml';
 
-// Helper to generate coordinates with offset for multiple files
-const getLayout = (index, fileIndex = 0) => {
-  // Spacing clusters by fileIndex
-  const fileOffsetX = fileIndex * 600; 
-  const fileOffsetY = 0; // Keep horizontal flow or grid? 
-  // Let's grid modules within a file, and shift files horizontally
-  return { 
-      x: fileOffsetX + 50 + (index % 3) * 350, 
-      y: fileOffsetY + 50 + Math.floor(index / 3) * 250 
-  };
+// Layout nodes left-to-right, top-to-bottom based on edge depth
+const applyLayout = (nodes, edges) => {
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const incoming = new Map();
+  const adjacency = new Map();
+  const parents = new Map();
+
+  nodes.forEach((node) => {
+    incoming.set(node.id, 0);
+    adjacency.set(node.id, []);
+    parents.set(node.id, []);
+  });
+
+  edges.forEach((edge) => {
+    if (!nodeMap.has(edge.source) || !nodeMap.has(edge.target)) return;
+    adjacency.get(edge.source).push(edge.target);
+    parents.get(edge.target).push(edge.source);
+    incoming.set(edge.target, (incoming.get(edge.target) || 0) + 1);
+  });
+
+  const orderIndex = new Map(nodes.map((node, index) => [node.id, index]));
+  const roots = nodes
+    .filter((node) => (incoming.get(node.id) || 0) === 0)
+    .sort((a, b) => orderIndex.get(a.id) - orderIndex.get(b.id));
+
+  const queue = [...roots];
+  const level = new Map(roots.map((node) => [node.id, 0]));
+  const inDegree = new Map(incoming);
+
+  while (queue.length) {
+    const current = queue.shift();
+    const baseLevel = level.get(current.id) || 0;
+    adjacency.get(current.id).forEach((targetId) => {
+      const nextLevel = baseLevel + 1;
+      const existingLevel = level.get(targetId);
+      if (existingLevel === undefined || nextLevel > existingLevel) {
+        level.set(targetId, nextLevel);
+      }
+      inDegree.set(targetId, (inDegree.get(targetId) || 0) - 1);
+      if ((inDegree.get(targetId) || 0) === 0) {
+        queue.push(nodeMap.get(targetId));
+      }
+    });
+  }
+
+  nodes.forEach((node) => {
+    if (!level.has(node.id)) level.set(node.id, 0);
+  });
+
+  const levelGroups = new Map();
+  nodes.forEach((node) => {
+    const group = level.get(node.id);
+    if (!levelGroups.has(group)) levelGroups.set(group, []);
+    levelGroups.get(group).push(node);
+  });
+
+  levelGroups.forEach((group) => {
+    group.sort((a, b) => orderIndex.get(a.id) - orderIndex.get(b.id));
+  });
+
+  const maxLevel = Math.max(0, ...levelGroups.keys());
+  const levelOrder = new Map();
+  if (levelGroups.has(0)) {
+    levelGroups.get(0).forEach((node, index) => {
+      levelOrder.set(node.id, index);
+    });
+  }
+
+  for (let depth = 1; depth <= maxLevel; depth += 1) {
+    const group = levelGroups.get(depth);
+    if (!group) continue;
+    group.sort((a, b) => {
+      const parentsA = parents.get(a.id) || [];
+      const parentsB = parents.get(b.id) || [];
+      const avgA = parentsA.length
+        ? parentsA.reduce((acc, id) => acc + (levelOrder.get(id) ?? 0), 0) / parentsA.length
+        : 0;
+      const avgB = parentsB.length
+        ? parentsB.reduce((acc, id) => acc + (levelOrder.get(id) ?? 0), 0) / parentsB.length
+        : 0;
+      if (avgA !== avgB) return avgA - avgB;
+      return orderIndex.get(a.id) - orderIndex.get(b.id);
+    });
+
+    group.forEach((node, index) => {
+      levelOrder.set(node.id, index);
+    });
+  }
+
+  const paddingX = 60;
+  const paddingY = 60;
+  const columnWidth = 360;
+  const rowHeight = 160;
+
+  levelGroups.forEach((group, groupIndex) => {
+    group.forEach((node, index) => {
+      node.position = {
+        x: paddingX + groupIndex * columnWidth,
+        y: paddingY + index * rowHeight
+      };
+    });
+  });
+
+  const placedPython = new Set();
+  edges.forEach((edge) => {
+    const target = nodeMap.get(edge.target);
+    const source = nodeMap.get(edge.source);
+    if (!target || !source) return;
+    if (target.data?.type !== 'python-script') return;
+    if (placedPython.has(target.id)) return;
+    target.position = {
+      x: source.position.x + 260,
+      y: source.position.y + 10
+    };
+    placedPython.add(target.id);
+  });
 };
 
 // Parse YAML to Nodes and Edges
@@ -68,7 +174,7 @@ export const yamlToNodes = (inputData) => {
         else if (type === 'sequence') className = 'node-sequence';
         else if (type === 'action') className = 'node-action';
         else if (type === 'data_gathering') className = 'node-data-gathering';
-        else if (type === 'question_answering') className = 'node-data-gathering'; 
+        else if (type === 'question_answering') className = 'node-question-answering'; 
 
         // Check if node already exists (global uniqueness assumption)
         // If duplicates exist, we might overwrite or skip. Taskyto assumes unique names.
@@ -81,7 +187,7 @@ export const yamlToNodes = (inputData) => {
         nodes.push({
           id: nodeId,
           type: 'custom',
-          position: getLayout(index, fileIndex),
+          position: { x: 0, y: 0 },
           data: { 
             label: mod.name,
             type: type,
@@ -170,10 +276,7 @@ export const yamlToNodes = (inputData) => {
               nodes.push({
                 id: pyId,
                 type: 'custom',
-                position: { 
-                    x: getLayout(index, fileIndex).x + 250, 
-                    y: getLayout(index, fileIndex).y + 50 
-                },
+                position: { x: 0, y: 0 },
                 data: { 
                   label: pyId,
                   type: 'python-script',
@@ -194,6 +297,7 @@ export const yamlToNodes = (inputData) => {
       });
   });
 
+  applyLayout(nodes, edges);
   return { nodes, edges };
 };
 

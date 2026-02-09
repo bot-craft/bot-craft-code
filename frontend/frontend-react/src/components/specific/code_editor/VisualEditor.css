@@ -7,10 +7,24 @@
     border: 1px solid #777;
     background: #1e1e1e; /* Dark theme default */
     color: #fff;
-    width: 200px;
+    width: auto;
+    min-width: 200px;
+    max-width: 360px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     padding: 0;
     overflow: hidden;
+  }
+
+  .node-wrapper {
+    display: inline-block;
+    width: 100%;
+  }
+
+  .visual-editor.light .react-flow__node {
+    border: 1px solid #d0d7de;
+    background: #ffffff;
+    color: #24292f;
+    box-shadow: 0 2px 6px rgba(31, 35, 40, 0.15);
   }
   
   /* Header styling */
@@ -21,13 +35,38 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-family: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
+
+  .node-header span:first-child {
+    white-space: normal;
+    word-break: break-word;
+    margin-right: 8px;
   }
   
   .node-body {
     padding: 8px;
     background: #2d2d2d;
     min-height: 40px;
+    font-family: "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    white-space: normal;
+    word-break: break-word;
   }
+
+  .node-body ul {
+    margin: 0;
+    padding-left: 15px;
+  }
+
+  .node-body li {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+    .visual-editor.light .node-body {
+      background: #f6f8fa;
+      color: #24292f;
+    }
   
   /* Type specific colors */
   
@@ -38,12 +77,18 @@
   .node-menu {
     border-color: #007bff;
   }
+  .visual-editor.light .node-menu {
+    border-color: #007bff;
+  }
   
   /* Sequence - Púrpura */
   .node-sequence .node-header {
     background-color: #6f42c1;
   }
   .node-sequence {
+    border-color: #6f42c1;
+  }
+  .visual-editor.light .node-sequence {
     border-color: #6f42c1;
   }
   
@@ -54,6 +99,9 @@
   .node-action {
     border-color: #fd7e14;
   }
+  .visual-editor.light .node-action {
+    border-color: #fd7e14;
+  }
   
   /* Data Gathering / QA - Verde */
   .node-data-gathering .node-header {
@@ -61,6 +109,20 @@
   }
   .node-data-gathering {
     border-color: #28a745;
+  }
+  .visual-editor.light .node-data-gathering {
+    border-color: #28a745;
+  }
+
+  /* Question Answering - Morado */
+  .node-question-answering .node-header {
+    background-color: #8e44ad;
+  }
+  .node-question-answering {
+    border-color: #8e44ad;
+  }
+  .visual-editor.light .node-question-answering {
+    border-color: #8e44ad;
   }
   
   /* Python - Gris Oscuro */
@@ -72,6 +134,11 @@
     border-color: #555;
     background: #222;
   }
+
+    .visual-editor.light .node-python {
+      border-color: #8c959f;
+      background: #eaeef2;
+    }
   
   /* Handles */
   .react-flow__handle {
@@ -82,3 +149,56 @@
   .react-flow__handle:hover {
     background: #fff;
   }
+
+    .visual-editor.light .react-flow__handle {
+      background: #8c959f;
+    }
+    .visual-editor.light .react-flow__handle:hover {
+      background: #24292f;
+    }
+
+    .visual-editor.light .react-flow__edge-textbg {
+      fill: #e1e4e8;
+    }
+    .visual-editor.light .react-flow__edge-text {
+      fill: #24292f;
+    }
+
+    .visual-editor.dark .react-flow__edge-textbg {
+      fill: #4b515a;
+    }
+    .visual-editor.dark .react-flow__edge-text {
+      fill: #e6edf3;
+    }
+
+    .node-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .node-badge-menu {
+      background: #0b5ed7;
+    }
+    .node-badge-data-gathering {
+      background: #1e7e34;
+    }
+    .node-badge-question-answering {
+      background: #7b2cbf;
+    }
+    .node-badge-action {
+      background: #e8590c;
+    }
+    .node-badge-python {
+      background: #343a40;
+    }

@@ -555,6 +555,7 @@ const CodeEditor = ({ projectSlug }) => {
                         edges={edges} 
                         onNodesChange={handleNodesChangeState} 
                         onEdgesChange={handleEdgesChangeState} 
+                        theme={currentTheme}
                       />
                    </Box>
                 ) : (

@@ -6,8 +6,13 @@ import ReactFlow, {
   applyEdgeChanges, 
   applyNodeChanges,
   Handle, 
-  Position 
+  Position,
+  MarkerType
 } from 'reactflow';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import QuizIcon from '@mui/icons-material/Quiz';
+import BoltIcon from '@mui/icons-material/Bolt';
 import 'reactflow/dist/style.css';
 import './VisualEditor.css';
 
@@ -18,6 +23,25 @@ const CustomNode = ({ data }) => {
   const label = data.label;
   const content = data.content || {};
 
+  const getBadge = (nodeType) => {
+    switch (nodeType) {
+      case 'menu':
+        return { icon: <AltRouteIcon fontSize="inherit" />, className: 'node-badge-menu' };
+      case 'data_gathering':
+        return { icon: <EditNoteIcon fontSize="inherit" />, className: 'node-badge-data-gathering' };
+      case 'question_answering':
+        return { icon: <QuizIcon fontSize="inherit" />, className: 'node-badge-question-answering' };
+      case 'action':
+        return { icon: <BoltIcon fontSize="inherit" />, className: 'node-badge-action' };
+      default:
+        return null;
+    }
+  };
+
+  const badge = isPython
+    ? { text: 'PY', className: 'node-badge-python' }
+    : getBadge(data.type);
+
   // Extract simple list of items/data to show in body
   const renderBody = () => {
      if (isPython) return <div style={{opacity: 0.7}}>Python Script</div>;
@@ -26,7 +50,7 @@ const CustomNode = ({ data }) => {
          return (
              <ul style={{margin:0, paddingLeft: 15}}>
                  {content.items.map((it, i) => (
-                     <li key={i}>{it.title?.substring(0, 15)}...</li>
+             <li key={i}>{it.title}</li>
                  ))}
              </ul>
          );
@@ -52,7 +76,11 @@ const CustomNode = ({ data }) => {
       <div className="node-wrapper">
         <div className="node-header">
           <span>{label}</span>
-          <span style={{fontSize: '0.8em', opacity: 0.8}}>{isPython ? 'PY' : ''}</span>
+          {badge && (
+            <span className={`node-badge ${badge.className}`}>
+              {badge.text || badge.icon}
+            </span>
+          )}
         </div>
         <div className="node-body">
             {renderBody()}
@@ -68,7 +96,7 @@ const nodeTypes = {
 };
 
 // --- Visual Editor Component ---
-const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange }) => {
+const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange, theme }) => {
   
   const handleNodesChange = useCallback(
     (changes) => onNodesChange(applyNodeChanges(changes, nodes)),
@@ -80,18 +108,41 @@ const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange }) => {
     [edges, onEdgesChange]
   );
 
+  const mode = theme?.mode || 'dark';
+  const backgroundColor = theme?.bg || '#1e1e1e';
+  const gridColor = mode === 'light' ? (theme?.text || '#24292f') : '#aaa';
+  const edgeColor = mode === 'light' ? '#24292f' : '#e6edf3';
+
+  const themedEdges = edges.map((edge) => ({
+    ...edge,
+    type: 'bezier',
+    style: {
+      ...edge.style,
+      stroke: edgeColor
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: edgeColor,
+      width: 18,
+      height: 18
+    }
+  }));
+
   return (
-    <div style={{ width: '100%', height: '100%', background: '#1e1e1e' }}>
+    <div
+      className={`visual-editor ${mode}`}
+      style={{ width: '100%', height: '100%', background: backgroundColor }}
+    >
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={themedEdges}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         nodeTypes={nodeTypes}
         fitView
         proOptions={{ hideAttribution: true }}
       >
-        <Background color="#aaa" gap={16} />
+        <Background color={gridColor} gap={16} />
         <Controls />
       </ReactFlow>
     </div>
