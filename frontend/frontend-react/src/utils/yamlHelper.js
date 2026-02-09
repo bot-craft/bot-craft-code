@@ -135,10 +135,11 @@ export const yamlToNodes = (inputData) => {
   const nodes = [];
   const edges = [];
   
-  // Track python scripts globally to avoid duplicates across files
-  const scriptNodes = new Set();
-  
-  filesData.forEach((file, fileIndex) => {
+  // Phase 1: Collect all raw modules from all files into a Map
+  // Store all definitions. For reference resolution, we default to the first matching name.
+  const moduleDefs = new Map();
+
+  filesData.forEach((file) => {
       const { content: yamlString, path } = file;
       if (!yamlString) return;
 
@@ -157,79 +158,137 @@ export const yamlToNodes = (inputData) => {
          if(parsed.kind) {
              modules = [parsed];
          } else {
-             // Fallback for flat structure without modules key?
              modules = [parsed];
          }
       }
 
       modules = modules.filter(m => m && m.name);
+      
+      modules.forEach(m => {
+          moduleDefs.set(m.name, m);
+      });
+  });
 
-      modules.forEach((mod, index) => {
-        // 1. Create Module Node
-        const nodeId = mod.name;
-        const type = mod.kind || 'default';
-        
-        let className = 'node-default';
-        if (type === 'menu') className = 'node-menu';
-        else if (type === 'sequence') className = 'node-sequence';
-        else if (type === 'action') className = 'node-action';
-        else if (type === 'data_gathering') className = 'node-data-gathering';
-        else if (type === 'question_answering') className = 'node-question-answering'; 
+  // Phase 2: Create Primary Instances for all definitions
+  const nodeUsage = new Map(); // NodeID -> usageCount
+  
+  Array.from(moduleDefs.values()).forEach((mod) => {
+      const type = mod.kind || 'default';
+      const nodeId = mod.name; // Initial ID is just the name
 
-        // Check if node already exists (global uniqueness assumption)
-        // If duplicates exist, we might overwrite or skip. Taskyto assumes unique names.
-        // We'll skip adding if ID exists to prevent reacting flow errors.
-        if (nodes.find(n => n.id === nodeId)) {
-            console.warn(`Duplicate module name found: ${nodeId}`);
-            return;
-        }
-
-        nodes.push({
+      nodes.push({
           id: nodeId,
           type: 'custom',
           position: { x: 0, y: 0 },
           data: { 
             label: mod.name,
             type: type,
-            content: mod
+            content: mod,
+            depth: 0 
           },
           className: `node-${type.replace('_', '-')}`
-        });
+      });
+      nodeUsage.set(nodeId, 0);
+  });
 
-        // 2. Create Edges
+  // Phase 3: Breadth-First Expansion (Queue-based)
+  // Iterate through nodes array (which grows) to resolve references and clone if needed.
+  
+  const MAX_NODES = 500; 
+
+  for (let i = 0; i < nodes.length; i++) {
+        if (nodes.length > MAX_NODES) {
+            console.warn('Max nodes limit reached, graph might contain cycles. Stopping expansion.');
+            break;
+        }
+
+        const currentNode = nodes[i];
+        const sourceId = currentNode.id;
+        const mod = currentNode.data.content;
+        const currentDepth = currentNode.data.depth || 0;
+        
+        // Stop expanding if too deep (cycle protection)
+        if (currentDepth > 20) continue;
+
+        const type = mod.kind;
+
+        // Function to get or create a target node
+        const getTargetNodeId = (targetName) => {
+            if (!moduleDefs.has(targetName)) return targetName; // External or missing ref
+            
+            // Check if Primary Node (ID == name) is unused
+            if (nodeUsage.has(targetName) && nodeUsage.get(targetName) === 0) {
+                nodeUsage.set(targetName, 1);
+                return targetName;
+            }
+            
+            // Primary used, Create CLONE
+            // We suffix with unique index
+            const cloneCount = nodes.filter(n => n.data.label === targetName).length;
+            const newId = `${targetName}__copy${cloneCount}`;
+            const targetMod = moduleDefs.get(targetName);
+            const targetType = targetMod.kind || 'default';
+            
+            const newNode = {
+                id: newId,
+                type: 'custom',
+                position: { x: 0, y: 0 },
+                data: {
+                    label: targetName,
+                    type: targetType,
+                    content: targetMod,
+                    depth: currentDepth + 1
+                },
+                className: `node-${targetType.replace('_', '-')}`
+            };
+            
+            nodes.push(newNode);
+            nodeUsage.set(newId, 1);
+
+            return newId;
+        };
+
+        // 2. Create Edges logic (adapted for Reference Resolving)
         if (type === 'menu' && mod.items) {
-          mod.items.forEach((item, i) => {
+          mod.items.forEach((item, idx) => {
             if (item.kind === 'module' && item.reference) {
+               const targetId = getTargetNodeId(item.reference);
                edges.push({
-                 id: `e-${nodeId}-${item.reference}-${i}`,
-                 source: nodeId,
-                 target: item.reference,
+                 id: `e-${sourceId}-${targetId}-${idx}`,
+                 source: sourceId,
+                 target: targetId,
                  label: item.title?.substring(0, 10) + '...',
                  animated: true
                });
             } else if (item.kind === 'sequence' && item.references) {
                if (item.references.length > 0) {
                  const firstRef = item.references[0];
+                 const firstTargetId = getTargetNodeId(firstRef);
+
                  edges.push({
-                   id: `e-${nodeId}-${firstRef}-seq-start-${i}`,
-                   source: nodeId,
-                   target: firstRef,
+                   id: `e-${sourceId}-${firstTargetId}-seq-start-${idx}`,
+                   source: sourceId,
+                   target: firstTargetId,
                    label: '(seq start)',
                    animated: true,
                    style: { stroke: '#6f42c1' }
                  });
 
+                 // Link the sequence chain
+                 let prevId = firstTargetId;
                  for (let j = 0; j < item.references.length - 1; j++) {
-                   const src = item.references[j];
-                   const tgt = item.references[j+1];
+                   const nextName = item.references[j+1];
+                   const nextId = getTargetNodeId(nextName); 
+                   
                    edges.push({
-                     id: `e-${src}-${tgt}-seq-${i}-${j}`,
-                     source: src,
-                     target: tgt,
+                     id: `e-${prevId}-${nextId}-seq-${idx}-${j}`,
+                     source: prevId,
+                     target: nextId,
                      label: 'next',
                      type: 'step',
                      style: { stroke: '#6f42c1', strokeDasharray: 5 }
                    });
+                   prevId = nextId;
                  }
                }
             }
@@ -238,28 +297,35 @@ export const yamlToNodes = (inputData) => {
 
         if (type === 'sequence' && mod.references) {
             if (mod.references.length > 0) {
-               const first = mod.references[0];
+               const firstRef = mod.references[0];
+               const firstTargetId = getTargetNodeId(firstRef);
+
                edges.push({
-                 id: `e-${nodeId}-${first}-seqroot`,
-                 source: nodeId,
-                 target: first,
+                 id: `e-${sourceId}-${firstTargetId}-seqroot`,
+                 source: sourceId,
+                 target: firstTargetId,
                  label: 'starts',
                  style: { stroke: '#6f42c1' }
                });
+               
+               let prevId = firstTargetId;
                for (let j = 0; j < mod.references.length - 1; j++) {
-                 const src = mod.references[j];
-                 const tgt = mod.references[j+1];
+                 const nextName = mod.references[j+1];
+                 const nextId = getTargetNodeId(nextName);
+
                  edges.push({
-                   id: `e-${src}-${tgt}-seqmod-${nodeId}-${j}`, 
-                   source: src,
-                   target: tgt,
+                   id: `e-${prevId}-${nextId}-seqmod-${sourceId}-${j}`, 
+                   source: prevId,
+                   target: nextId,
                    label: 'next',
                    style: { stroke: '#6f42c1', strokeDasharray: 5 }
                  });
+                 prevId = nextId;
                }
             }
         }
 
+        // Python Scripts handling
         let scriptName = null;
         if (mod['on-success']?.execute?.code) {
           scriptName = mod['on-success'].execute.code;
@@ -268,34 +334,36 @@ export const yamlToNodes = (inputData) => {
         }
 
         if (scriptName && !scriptName.includes('\n') && scriptName.trim().endsWith('.py')) {
-            const pyId = scriptName.trim();
-            if (!scriptNodes.has(pyId)) {
-              scriptNodes.add(pyId);
-              // Position Python Node relative to current file cluster or node?
-              // Simple: Near the first usage found.
-              nodes.push({
+            const pyName = scriptName.trim();
+            // Clone scripts too for visual fidelity
+            const pyId = `${pyName}_${sourceId}`; 
+            
+            nodes.push({
                 id: pyId,
                 type: 'custom',
                 position: { x: 0, y: 0 },
                 data: { 
-                  label: pyId,
+                  label: pyName,
                   type: 'python-script',
-                  content: { kind: 'python', name: pyId }
+                  content: { kind: 'python', name: pyName }
                 },
                 className: 'node-python'
-              });
-            }
+            });
 
             edges.push({
-              id: `e-${nodeId}-${pyId}-code`,
-              source: nodeId,
+              id: `e-${sourceId}-${pyId}-code`,
+              source: sourceId,
               target: pyId,
               style: { stroke: '#343a40' },
               label: 'exec'
             });
         }
-      });
-  });
+  }
+
+  // Remove totally unused primary nodes to clean up roots?
+  // Only remove if they are not potentially real start nodes.
+  // But hard to know. User can manually delete them or we leave them.
+  // The user didn't ask to hide unused roots, so leaving them is safer.
 
   applyLayout(nodes, edges);
   return { nodes, edges };

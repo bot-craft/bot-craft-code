@@ -8,8 +8,8 @@
     background: #1e1e1e; /* Dark theme default */
     color: #fff;
     width: auto;
-    min-width: 200px;
-    max-width: 360px;
+    /* min-width: 200px; */
+    max-width: 200px;
     box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     padding: 0;
     overflow: hidden;
@@ -76,6 +76,7 @@
   }
   .node-menu {
     border-color: #007bff;
+    /* max-width: 260px; */
   }
   .visual-editor.light .node-menu {
     border-color: #007bff;
