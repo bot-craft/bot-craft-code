@@ -735,6 +735,8 @@ TASK_DESCRIPTION = \
             <python content>
             ```
           - ONLY generate the ESSENTIAL modules to save tokens and avoid repetition unless the user EXPLICITLY asks you to repeat some preveously generated content. 
+
+        VERY VERY IMPORTANT when the user asks you to create a chatbot you MUST start with a little (be brief) description of what you are going to do and then, the code cells you generate, you MUST start them with "YAML Code for (code font)<module name>" if it is a Python cell, then "Python Code for (code font)<module name>". The initial text Will start with "Of Course!!" add emojis to your answer.
     """
 
 

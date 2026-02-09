@@ -32,8 +32,8 @@ from assistant_prompts import GREETING_RESPONSE, OUT_OF_SCOPE_RESPONSE
 # ASSISTANT_LLM_MODEL = "gpt-4.1-mini"
 # ASSISTANT_LLM_MODEL = "gpt-4.1-nano"
 # ASSISTANT_LLM_MODEL = "gpt-5-nano"
-# ASSISTANT_LLM_MODEL = "gpt-5-mini"
-ASSISTANT_LLM_MODEL = "gpt-4o-mini"
+# ASSISTANT_LLM_MODEL = "gpt-4o-mini"
+ASSISTANT_LLM_MODEL = "gpt-5-mini"
 
 # FILTER_LLM_MODEL = "gpt-4o-mini"
 # FILTER_LLM_MODEL = "gpt-4.1-nano"
