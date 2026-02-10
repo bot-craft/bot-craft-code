@@ -203,3 +203,18 @@
     .node-badge-python {
       background: #343a40;
     }
+
+/* Custom scrollbar for scrollable node bodies */
+.node-body::-webkit-scrollbar {
+  width: 6px;
+}
+.node-body::-webkit-scrollbar-track {
+  background: transparent; 
+}
+.node-body::-webkit-scrollbar-thumb {
+  background-color: rgba(155, 155, 155, 0.5);
+  border-radius: 4px;
+}
+.node-body::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(155, 155, 155, 0.7);
+}

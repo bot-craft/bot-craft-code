@@ -93,29 +93,85 @@ const applyLayout = (nodes, edges) => {
   const paddingX = 60;
   const paddingY = 60;
   const columnWidth = 360;
-  const rowHeight = 160;
+  const verticalGap = 40;
+
+  // Helper to estimate height based on content to prevent overlaps
+  const getNodeHeight = (node) => {
+      const content = node.data?.content || {};
+      const type = node.data?.type;
+      
+      // Python scripts are usually small
+      if (type === 'python-script') {
+        return 80;
+      }
+      
+      // Base height for Header + Padding
+      let h = 80; 
+      
+      // Generic List Rendering Calculation
+      // We check for common array properties that are rendered as lists
+      
+      // 1. Items (Menu options, lists)
+      if (Array.isArray(content.items) && content.items.length > 0) {
+          content.items.forEach(it => {
+              const text = it.title || (typeof it === 'string' ? it : '');
+              const textLen = text.length;
+              // Wrapped text estimation: ~30 chars per line
+              const lines = Math.max(1, Math.ceil(textLen / 30));
+              h += (lines * 22) + 8; // Height per line + gap
+          });
+      } 
+      // 1b. Questions (Question Answering)
+      else if (content.kind === 'question_answering' && Array.isArray(content.questions)) {
+           content.questions.forEach(q => {
+               const qText = q.question || '';
+               const aText = q.answer || ''; // Answer might be number or string
+               // Estimate lines for Question and Answer
+               const qLines = Math.max(1, Math.ceil(qText.toString().length / 30));
+               const aLines = Math.max(1, Math.ceil(aText.toString().length / 30));
+               
+               h += (qLines * 22) + (aLines * 22) + 12; // Gap between QA pairs
+           });
+      }
+      // 2. Data (Attributes, keys)
+      // Note: In VisualEditor, data is rendered with smaller font (fontSize: 10)
+      else if (Array.isArray(content.data) && content.data.length > 0) {
+          content.data.forEach(d => {
+             let text = '';
+             if (typeof d === 'object' && d !== null) {
+                 text = Object.keys(d)[0] || '';
+             } else if (typeof d === 'string') {
+                 text = d;
+             }
+             
+             const textLen = text.length;
+             // Smaller font allows more chars, approx 45 per line
+             const lines = Math.max(1, Math.ceil(textLen / 45));
+             h += (lines * 16) + 4; 
+          });
+      }
+      // 3. Fallback generic content
+      else {
+          h += 40; 
+      }
+      
+      // Cap the height to prevent extremely tall nodes
+      // Corresponding visual component has scrolling enabled for large content
+      return Math.min(h, 250);
+  };
 
   levelGroups.forEach((group, groupIndex) => {
-    group.forEach((node, index) => {
+    let currentY = paddingY;
+
+    group.forEach((node) => {
       node.position = {
         x: paddingX + groupIndex * columnWidth,
-        y: paddingY + index * rowHeight
+        y: currentY
       };
+      
+      const height = getNodeHeight(node);
+      currentY += height + verticalGap;
     });
-  });
-
-  const placedPython = new Set();
-  edges.forEach((edge) => {
-    const target = nodeMap.get(edge.target);
-    const source = nodeMap.get(edge.source);
-    if (!target || !source) return;
-    if (target.data?.type !== 'python-script') return;
-    if (placedPython.has(target.id)) return;
-    target.position = {
-      x: source.position.x + 260,
-      y: source.position.y + 10
-    };
-    placedPython.add(target.id);
   });
 };
 

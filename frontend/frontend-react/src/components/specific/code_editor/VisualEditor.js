@@ -56,6 +56,19 @@ const CustomNode = ({ data }) => {
          );
      }
      
+     if (content.kind === 'question_answering' && content.questions) {
+         return (
+             <ul style={{margin:0, paddingLeft: 15}}>
+                 {content.questions.map((q, i) => (
+                     <li key={i} style={{marginBottom: 4}}>
+                        <strong>Q:</strong> {q.question} <br/>
+                        <span style={{opacity: 0.8}}>A: {q.answer}</span>
+                     </li>
+                 ))}
+             </ul>
+         );
+     }
+     
      if (content.data) {
          return (
              <div style={{fontSize: 10}}>
@@ -82,7 +95,7 @@ const CustomNode = ({ data }) => {
             </span>
           )}
         </div>
-        <div className="node-body">
+        <div className="node-body nowheel" style={{ maxHeight: '200px', overflowY: 'auto' }}>
             {renderBody()}
         </div>
       </div>
