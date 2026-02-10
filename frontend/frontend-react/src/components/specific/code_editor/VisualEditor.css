@@ -218,3 +218,24 @@
 .node-body::-webkit-scrollbar-thumb:hover {
   background-color: rgba(155, 155, 155, 0.7);
 }
+
+
+/* Hover Highlights - High Specificity to override theme defaults */
+.visual-editor .react-flow__node.node-menu:hover {
+  box-shadow: 0 0 0 2px #007bff !important;
+}
+.visual-editor .react-flow__node.node-sequence:hover {
+    box-shadow: 0 0 0 2px #6f42c1 !important;
+}
+.visual-editor .react-flow__node.node-action:hover {
+    box-shadow: 0 0 0 2px #fd7e14 !important;
+}
+.visual-editor .react-flow__node.node-data-gathering:hover {
+    box-shadow: 0 0 0 2px #28a745 !important;
+}
+.visual-editor .react-flow__node.node-question-answering:hover {
+    box-shadow: 0 0 0 2px #8e44ad !important;
+}
+.visual-editor .react-flow__node.node-python:hover {
+    box-shadow: 0 0 0 2px #888 !important;
+}
