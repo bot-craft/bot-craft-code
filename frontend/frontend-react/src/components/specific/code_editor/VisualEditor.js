@@ -2,6 +2,7 @@
 import React, { useCallback } from 'react';
 import ReactFlow, { 
   Controls, 
+  Panel,
   Background, 
   applyEdgeChanges, 
   applyNodeChanges,
@@ -13,6 +14,9 @@ import AltRouteIcon from '@mui/icons-material/AltRoute';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import QuizIcon from '@mui/icons-material/Quiz';
 import BoltIcon from '@mui/icons-material/Bolt';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
+import { IconButton, Tooltip } from '@mui/material';
 import 'reactflow/dist/style.css';
 import './VisualEditor.css';
 
@@ -109,17 +113,49 @@ const nodeTypes = {
 };
 
 // --- Visual Editor Component ---
-const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange, theme, onNodeClick }) => {
+const VisualEditor = ({ 
+  nodes, 
+  edges, 
+  onNodesChange, 
+  onEdgesChange, 
+  theme, 
+  onNodeClick, 
+  onViewViewport, 
+  defaultViewport,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onRecordHistory
+}) => {
   
   const handleNodesChange = useCallback(
-    (changes) => onNodesChange(applyNodeChanges(changes, nodes)),
-    [nodes, onNodesChange]
+    (changes) => {
+        // Snapshot history for structural changes
+        // Position changes are handled by DragStart interaction
+        const significant = changes.some(c => c.type === 'remove' || c.type === 'add' || c.type === 'reset');
+        if (significant && onRecordHistory) {
+            onRecordHistory();
+        }
+        onNodesChange(applyNodeChanges(changes, nodes));
+    },
+    [nodes, onNodesChange, onRecordHistory]
   );
 
   const handleEdgesChange = useCallback(
-    (changes) => onEdgesChange(applyEdgeChanges(changes, edges)),
-    [edges, onEdgesChange]
+    (changes) => {
+        const significant = changes.some(c => c.type === 'remove' || c.type === 'add');
+        if (significant && onRecordHistory) {
+            onRecordHistory();
+        }
+        onEdgesChange(applyEdgeChanges(changes, edges));
+    },
+    [edges, onEdgesChange, onRecordHistory]
   );
+  
+  const onNodeDragStart = useCallback(() => {
+      if (onRecordHistory) onRecordHistory();
+  }, [onRecordHistory]);
 
   const mode = theme?.mode || 'dark';
   const backgroundColor = theme?.bg || '#1e1e1e';
@@ -152,12 +188,31 @@ const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange, theme, onNod
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         onNodeClick={onNodeClick}
+        onMoveEnd={onViewViewport}
+        onNodeDragStart={onNodeDragStart}
+        defaultViewport={defaultViewport}
         nodeTypes={nodeTypes}
-        fitView
+        fitView={!defaultViewport}
         proOptions={{ hideAttribution: true }}
       >
         <Background color={gridColor} gap={16} />
         <Controls />
+        <Panel position="top-left" style={{ display: 'flex', gap: '8px' }}>
+            <Tooltip title="Undo (Ctrl+Z)">
+                <span>
+                 <IconButton onClick={onUndo} disabled={!canUndo} size="small" sx={{ bgcolor: 'background.default', boxShadow: 1, '&:hover': { bgcolor: 'action.hover' }, color: 'text.primary' }}>
+                    <UndoIcon fontSize="small" />
+                 </IconButton>
+                </span>
+            </Tooltip>
+            <Tooltip title="Redo (Ctrl+Y)">
+                 <span>
+                 <IconButton onClick={onRedo} disabled={!canRedo} size="small" sx={{ bgcolor: 'background.default', boxShadow: 1, '&:hover': { bgcolor: 'action.hover' }, color: 'text.primary' }}>
+                    <RedoIcon fontSize="small" />
+                 </IconButton>
+                 </span>
+            </Tooltip>
+        </Panel>
       </ReactFlow>
     </div>
   );

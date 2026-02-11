@@ -29,6 +29,7 @@ def list_files(slug):
                 "children": [
                     get_file_tree(child) 
                     for child in sorted(path.iterdir(), key=lambda x: (x.is_file(), x.name))
+                    if child.name != '.bot-craft'
                 ]
             }
     

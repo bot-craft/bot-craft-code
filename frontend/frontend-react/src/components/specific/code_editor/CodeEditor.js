@@ -88,6 +88,9 @@ const CodeEditor = ({ projectSlug }) => {
   const [isVisualMode, setIsVisualMode] = useState(false);
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
+  
+  // History State
+  const [history, setHistory] = useState({ past: [], future: [] });
 
   const isYaml = activeFile && (activeFile.endsWith('.yaml') || activeFile.endsWith('.yml'));
 
@@ -121,6 +124,32 @@ const CodeEditor = ({ projectSlug }) => {
       }));
 
       const { nodes: newNodes, edges: newEdges } = yamlToNodes(filesWithContent);
+
+      // --- Load Layout ---
+      try {
+        const layoutRes = await axios.get(`/api/projects/${projectSlug}/files/.bot-craft/visual-layout.json/get`);
+        if (layoutRes.data && layoutRes.data.content) {
+             const layout = JSON.parse(layoutRes.data.content);
+             
+             if (layout.viewport) {
+                 visualViewportRef.current = layout.viewport;
+             }
+             
+             if (layout.nodes) {
+                 const posMap = new Map(layout.nodes.map(n => [n.id, n.position]));
+                 newNodes.forEach(n => {
+                     if (posMap.has(n.id)) {
+                         n.position = posMap.get(n.id);
+                     }
+                 });
+             }
+        }
+      } catch (e) {
+         // No stored layout, use defaults
+         visualViewportRef.current = null;
+      }
+      // -------------------
+
       setNodes(newNodes);
       setEdges(newEdges);
       
@@ -151,21 +180,138 @@ const CodeEditor = ({ projectSlug }) => {
     // So yes, `onNodesChange` prop here should take the NEW nodes list.
   }, []);
 
+  // Debounced save for layout
+  const debouncedSaveLayout = useCallback(
+    debounce(async (currentNodes, currentViewport) => {
+        const layoutData = {
+            viewport: currentViewport,
+            nodes: currentNodes.map(n => ({ id: n.id, position: n.position }))
+        };
+        const folderPath = '.bot-craft';
+        const fileName = 'visual-layout.json';
+        const fullPath = `${folderPath}/${fileName}`;
+        const contentStr = JSON.stringify(layoutData, null, 2);
+        
+        try {
+            // Try to update file directly
+            await axios.put(`/api/projects/${projectSlug}/files/${fullPath}/update`, {
+                body: JSON.stringify({ content: contentStr })
+            });
+        } catch(e) {
+            // If failed, it might not exist.
+            // Create folder first just in case?
+            // The create_file endpoint handles parent creation for files: full_path.parent.mkdir(parents=True, exist_ok=True)
+            // So we can just try creating the file.
+            try {
+             await axios.post(`/api/projects/${projectSlug}/files`, {
+                body: JSON.stringify({
+                    path: fullPath,
+                    type: 'file',
+                    content: contentStr
+                })
+             });
+            } catch (err) { console.error("Failed to save layout:", err); }
+        }
+    }, 1000), [projectSlug]);
+
   // We need distinct handlers for the VisualEditor prop
   const handleNodesChangeState = useCallback((newNodes) => {
       setNodes(newNodes);
-      // Optional: Debounce save to YAML
-      // const yaml = nodesToYaml(newNodes, edges);
-      // debouncedSave(yaml, activeFile); 
-  }, []); // edges dependency if needed
+      debouncedSaveLayout(newNodes, visualViewportRef.current); 
+  }, [debouncedSaveLayout]); 
+
+  const handleViewportChange = useCallback((event, viewport) => {
+      if (viewport) {
+          visualViewportRef.current = viewport;
+          debouncedSaveLayout(nodesRef.current, viewport);
+      }
+  }, [debouncedSaveLayout]);
 
   const handleEdgesChangeState = useCallback((newEdges) => {
       setEdges(newEdges);
       // Optional: Debounce save
   }, []); 
 
+  // --- History Management ---
+  const handleRecordHistory = useCallback(() => {
+    setHistory(curr => {
+        const newPast = [...curr.past, { nodes, edges }];
+        // Limit history size to 50
+        if (newPast.length > 50) newPast.shift();
+        return {
+            past: newPast,
+            future: []
+        };
+    });
+  }, [nodes, edges]);
+
+  const handleUndo = useCallback(() => {
+    setHistory(curr => {
+        if (curr.past.length === 0) return curr;
+        const previous = curr.past[curr.past.length - 1];
+        const newPast = curr.past.slice(0, -1);
+        
+        setNodes(previous.nodes);
+        setEdges(previous.edges);
+        
+        // Save layout after undo
+        debouncedSaveLayout(previous.nodes, visualViewportRef.current);
+        
+        return {
+            past: newPast,
+            future: [{ nodes, edges }, ...curr.future]
+        };
+    });
+  }, [nodes, edges, debouncedSaveLayout]);
+
+  const handleRedo = useCallback(() => {
+    setHistory(curr => {
+        if (curr.future.length === 0) return curr;
+        const next = curr.future[0];
+        const newFuture = curr.future.slice(1);
+        
+        setNodes(next.nodes);
+        setEdges(next.edges);
+        
+        // Save layout after redo
+        debouncedSaveLayout(next.nodes, visualViewportRef.current);
+        
+        return {
+            past: [...curr.past, { nodes, edges }],
+            future: newFuture
+        };
+    });
+  }, [nodes, edges, debouncedSaveLayout]);
+
+  // Keyboard Shortcuts for Undo/Redo
+  useEffect(() => {
+    if (!isVisualMode) return;
+    const handleKeyDown = (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+             e.preventDefault();
+             handleUndo();
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { 
+             e.preventDefault();
+             handleRedo();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isVisualMode, handleUndo, handleRedo]);
+  // --------------------------
+
   const editorDisposables = React.useRef([]);
   const yamlEditorRef = React.useRef(null);
+  
+  // Refs for Visual Editor persistence
+  const visualViewportRef = React.useRef({ x: 0, y: 0, zoom: 1 });
+  const nodesRef = React.useRef(nodes);
+
+  // Update nodesRef when nodes change
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   // Crear un ref para mantener los archivos actualizados
   const filesRef = React.useRef(files);
@@ -211,20 +357,20 @@ const CodeEditor = ({ projectSlug }) => {
     }
   }, [files]);
 
+  const filterHiddenFiles = (items) => {
+    if (!items) return [];
+    return items.filter(item => item.name !== '.bot-craft' && item.name !== '.layout.json').map(item => ({
+        ...item,
+        children: item.children ? filterHiddenFiles(item.children) : undefined
+    }));
+  };
+
   const fetchFiles = async () => {
     try {
       const response = await axios.get(`/api/projects/${projectSlug}/files`);
-
-      // console.log(`response.data:`);
-      // console.log(response.data);
-      // console.log(`response.status: ${response.status}`);
-      // console.log(`response.headers.get('Content-Type'): ${response.headers.get('Content-Type')}`);
-
       const data = response.data;
-      // console.log(`data:`);
-      // console.log(data);
-      setFiles(data);
-
+      const filtered = filterHiddenFiles(data);
+      setFiles(filtered);
     } catch (error) {
       console.error(`Error in (fetchFiles): ${error}`);
     }
@@ -580,6 +726,13 @@ const CodeEditor = ({ projectSlug }) => {
                         onEdgesChange={handleEdgesChangeState} 
                         onNodeClick={handleNodeClick}
                         theme={currentTheme}
+                        onViewViewport={handleViewportChange}
+                        defaultViewport={visualViewportRef.current || undefined}
+                        onUndo={handleUndo}
+                        onRedo={handleRedo}
+                        canUndo={history.past.length > 0}
+                        canRedo={history.future.length > 0}
+                        onRecordHistory={handleRecordHistory}
                       />
                    </Box>
                 ) : (
