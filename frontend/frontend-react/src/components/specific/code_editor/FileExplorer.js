@@ -9,12 +9,12 @@ import {
   Box, Typography, Menu, MenuItem, Dialog, 
   DialogTitle, DialogContent, DialogActions, 
   TextField, Button, Select, FormControl, 
-  InputLabel, IconButton
+  InputLabel, IconButton, Tooltip
 } from '@mui/material';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 // import { ExpandMore, ChevronRight } from '@mui/icons-material';
-import { ExpandMore, ChevronRight, MoreVert } from '@mui/icons-material';
+import { ExpandMore, ChevronRight, MoreVert, DisabledByDefault } from '@mui/icons-material';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 
@@ -41,6 +41,8 @@ const FileExplorer = ({
 
   selectedNode,
   setSelectedNode,
+  onCloseAllFiles,
+  isVisualMode,
 }) => {
   const [contextMenu, setContextMenu] = useState(null);
   // const [selectedNode, setSelectedNode] = useState(null);
@@ -534,13 +536,26 @@ const FileExplorer = ({
             onToggle={x => x}
           />
         </Typography>
-        <Button
-          size="small"
-          onClick={(e) => handleContextMenu(e, { path: '' })}
-          sx={{ minWidth: 0, p: 0.5 }}
-        >
-          <MoreVert sx={{ fontSize: 18, color: theme.iconColor }} />
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {!isVisualMode && (
+          <Tooltip title="Close All Tabs">
+              <IconButton 
+                size="small" 
+                onClick={onCloseAllFiles}
+                sx={{ p: 0.5, mr: 0.5 }}
+              >
+                  <DisabledByDefault sx={{ fontSize: 18, color: theme.iconColor }} />
+              </IconButton>
+          </Tooltip>
+          )}
+          <Button
+            size="small"
+            onClick={(e) => handleContextMenu(e, { path: '' })}
+            sx={{ minWidth: 0, p: 0.5 }}
+          >
+            <MoreVert sx={{ fontSize: 18, color: theme.iconColor }} />
+          </Button>
+        </Box>
       </Box>
 
       <SimpleTreeView

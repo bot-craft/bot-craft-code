@@ -371,10 +371,19 @@ const CodeEditor = ({ projectSlug }) => {
   };
 
   const handleFileClose = (filePath) => {
-    setOpenFiles(openFiles.filter(f => f.path !== filePath));
+    const newOpenFiles = openFiles.filter(f => f.path !== filePath);
+    setOpenFiles(newOpenFiles);
+    
     if (activeFile === filePath) {
-      setActiveFile(openFiles[0]?.path || null);
+      // Switch to the last opened file or null if no files remain
+      const nextFile = newOpenFiles.length > 0 ? newOpenFiles[newOpenFiles.length - 1] : null;
+      setActiveFile(nextFile ? nextFile.path : null);
     }
+  };
+
+  const handleCloseAllFiles = () => {
+    setOpenFiles([]);
+    setActiveFile(null);
   };
 
   const debouncedSave = useCallback(
@@ -507,6 +516,8 @@ const CodeEditor = ({ projectSlug }) => {
             onCreateModule={handleCreateModule}
             selectedNode={selectedNode}
             setSelectedNode={setSelectedNode}
+            onCloseAllFiles={handleCloseAllFiles}
+            isVisualMode={isVisualMode}
             theme={currentTheme} // Pasar tema
           />
         </Panel>
