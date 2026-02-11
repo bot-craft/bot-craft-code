@@ -353,6 +353,11 @@ const CodeEditor = ({ projectSlug }) => {
   };
 
   const handleFileOpen = async (filePath) => {
+    // Ensure we are in Code Mode when opening a file
+    if (isVisualMode) {
+        setIsVisualMode(false);
+    }
+
     if (!openFiles.find(f => f.path === filePath)) {
       const content = await fetchFileContent(filePath);
       const newFile = {
@@ -467,6 +472,13 @@ const CodeEditor = ({ projectSlug }) => {
     );
   }, []);
 
+  const handleNodeClick = useCallback((event, node) => {
+      if (node.data?.filePath) {
+          handleFileOpen(node.data.filePath);
+          setIsVisualMode(false);
+      }
+  }, [handleFileOpen]);
+
   return (
     <Box sx={{ 
       height: '100%', 
@@ -555,6 +567,7 @@ const CodeEditor = ({ projectSlug }) => {
                         edges={edges} 
                         onNodesChange={handleNodesChangeState} 
                         onEdgesChange={handleEdgesChangeState} 
+                        onNodeClick={handleNodeClick}
                         theme={currentTheme}
                       />
                    </Box>

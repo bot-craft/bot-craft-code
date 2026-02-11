@@ -109,7 +109,7 @@ const nodeTypes = {
 };
 
 // --- Visual Editor Component ---
-const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange, theme }) => {
+const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange, theme, onNodeClick }) => {
   
   const handleNodesChange = useCallback(
     (changes) => onNodesChange(applyNodeChanges(changes, nodes)),
@@ -151,6 +151,7 @@ const VisualEditor = ({ nodes, edges, onNodesChange, onEdgesChange, theme }) => 
         edges={themedEdges}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
+        onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         fitView
         proOptions={{ hideAttribution: true }}

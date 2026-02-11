@@ -221,7 +221,8 @@ export const yamlToNodes = (inputData) => {
       modules = modules.filter(m => m && m.name);
       
       modules.forEach(m => {
-          moduleDefs.set(m.name, m);
+          // Store path with module definition for navigation
+          moduleDefs.set(m.name, { ...m, _sourceFile: path });
       });
   });
 
@@ -240,6 +241,7 @@ export const yamlToNodes = (inputData) => {
             label: mod.name,
             type: type,
             content: mod,
+            filePath: mod._sourceFile,
             depth: 0 
           },
           className: `node-${type.replace('_', '-')}`
@@ -293,6 +295,7 @@ export const yamlToNodes = (inputData) => {
                     label: targetName,
                     type: targetType,
                     content: targetMod,
+                    filePath: targetMod._sourceFile,
                     depth: currentDepth + 1
                 },
                 className: `node-${targetType.replace('_', '-')}`
