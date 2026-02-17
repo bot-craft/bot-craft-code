@@ -1,5 +1,5 @@
 # Dockerfile para frontend
-FROM node:22 as node-react_img
+FROM node:22 AS node-react_img
 
 RUN apt update && apt install -y sudo && rm -rf /var/lib/apt/lists/*
 
