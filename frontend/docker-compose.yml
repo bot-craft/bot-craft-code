@@ -8,7 +8,7 @@ services:
     volumes:
       # - ./react-pract:/app
       - ./frontend-react:/app/frontend-react
-      # - "react_node_modules:/app/frontend-react/node_modules"
+      - "bot-craft_frontend_node_volumes:/app/frontend-react/node_modules"
 
     
     restart: unless-stopped
@@ -19,7 +19,7 @@ services:
     container_name: twp-frontend-react
     hostname: twp-frontend-react
 
-# volumes:
-#   react_node_modules:
-#     name: react_node_modules
-#     external: true
+volumes:
+  bot-craft_frontend_node_volumes:
+    name: bot-craft_frontend_node_volumes
+    # external: true

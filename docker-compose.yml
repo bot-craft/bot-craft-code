@@ -45,7 +45,7 @@ services:
     depends_on:
       - frontend
 
-# volumes:
-#   react_node_modules:
-#     name: react_node_modules
-#     external: true
+volumes:
+  bot-craft_frontend_node_volumes:
+    name: bot-craft_frontend_node_volumes
+    # external: true
