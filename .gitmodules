@@ -1,4 +1,4 @@
 [submodule "chatbot-llm"]
 	path = chatbot-llm
-	url = git@github.com:satori-chatbots/taskyto.git
+	url = https://github.com/satori-chatbots/taskyto.git
 	branch = bot-craft-integration
