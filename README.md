@@ -64,7 +64,7 @@ A demonstration of the new automation feature. This functionality eliminates the
 #### 4. CLONE
 
 ```bash
-git clone --recurse-submodules git@github.com:bot-craft/bot-craft-code.git
+git clone --recurse-submodules https://github.com/bot-craft/bot-craft-code.git --branch=dev
 ```
 
 ```bash
